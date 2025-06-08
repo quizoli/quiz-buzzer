@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">BILYONARIO QUIZ B</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .buzzer-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+    .buzzer-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 10px;
+    }
+    .buzzer {
+      padding: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      width: 150px;
+      height: 100px;
+      margin-top: 5px;
+    }
+    #reset {
+      background-color: #555;
+      padding: 15px 30px;
+      font-size: 18px;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #status {
+      font-size: 28px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    .disabled {
+      background-color: #ccc !important;
+      cursor: not-allowed;
+    }
+    .name-input, .header-input, .players-input, .password-input {
+      padding: 8px;
+      font-size: 16px;
+      width: 150px;
+    }
+    .score-input {
+      padding: 8px;
+      font-size: 16px;
+      width: 60px;
+      margin-left: 10px;
+    }
+    .name-label, .score-label, .header-label, .players-label, .password-label {
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+    .header-container, .players-container, .password-container {
+      margin-bottom: 20px;
+    }
+    #password-screen {
+      display: block;
+      margin-top: 50px;
+    }
+    #game-screen {
+      display: none;
+    }
+    .auth-button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-left: 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #555;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="password-screen" class="container">
+    <h1>Authenticate</h1>
+    <div class="password-container">
+      <label class="password-label">Enter Password:</label>
+      <input type="password" id="password-input" class="password-input">
+      <button id="auth-button" class="auth-button">Submit</button>
+    </div>
+    <div id="auth-error" style="color: red; margin-top: 10px;"></div>
+  </div>
+  <div id="game-screen" class="container">
+    <div class="header-container">
+      <label class="header-label">Quiz Title:</label>
+      <input type="text" id="header-input" class="header-input" value="BILYONARIO QUIZ B">
+    </div>
+    <h1 id="main-header">BILYONARIO QUIZ B</h1>
+    <div class="players-container">
+      <label class="players-label">Number of Players (2-8):</label>
+      <input type="number" id="players-input" class="players-input" value="4" min="2" max="8">
+    </div>
+    <div id="status">Ready</div>
+    <div id="buzzer-row" class="buzzer-row"></div>
+    <button id="reset">Reset</button>
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    // ✅ Modified to play a two-tone beep
+    function playBeep(frequency1, duration) {
+      const gap = 0.05; // 50ms pause between tones
+      const frequency2 = frequency1 * 1.25;
+
+      const now = audioCtx.currentTime;
+
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(frequency1, now);
+      gain1.gain.setValueAtTime(0.5, now);
+      osc1.start(now);
+      osc1.stop(now + duration);
+
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(frequency2, now + duration + gap);
+      gain2.gain.setValueAtTime(0.5, now + duration + gap);
+      osc2.start(now + duration + gap);
+      osc2.stop(now + 2 * duration + gap);
+    }
+
+    const correctPassword = 'quizmaster123';
+    const passwordScreen = document.getElementById('password-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const passwordInput = document.getElementById('password-input');
+    const authButton = document.getElementById('auth-button');
+    const authError = document.getElementById('auth-error');
+    let isBuzzerActive = true;
+    let buzzers = [], nameInputs = [], scoreInputs = [];
+    const status = document.getElementById('status');
+    const resetButton = document.getElementById('reset');
+    const headerInput = document.getElementById('header-input');
+    const mainHeader = document.getElementById('main-header');
+    const pageTitle = document.getElementById('page-title');
+    const playersInput = document.getElementById('players-input');
+    const buzzerRow = document.getElementById('buzzer-row');
+
+    const buzzerColors = ['#ff4d4d', '#4d79ff', '#4dff4d', '#ffcc00', '#ff33cc', '#33cccc', '#cc33ff', '#ff9933'];
+    const buzzerFrequencies = [440, 523.25, 659.25, 880, 987.77, 1108.73, 1318.51, 1760];
+
+    function generateBuzzers(numPlayers) {
+      buzzerRow.innerHTML = '';
+      buzzers = [];
+      nameInputs = [];
+      scoreInputs = [];
+
+      for (let i = 0; i < numPlayers; i++) {
+        const buzzerContainer = document.createElement('div');
+        buzzerContainer.className = 'buzzer-container';
+
+        const nameLabel = document.createElement('label');
+        nameLabel.className = 'name-label';
+        nameLabel.textContent = `Player ${i + 1} Name:`;
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.id = `name${i + 1}`;
+        nameInput.className = 'name-input';
+        nameInput.placeholder = `Enter Player ${i + 1} Name`;
+
+        const buzzer = document.createElement('button');
+        buzzer.id = `buzzer${i + 1}`;
+        buzzer.className = 'buzzer';
+        buzzer.style.backgroundColor = buzzerColors[i % buzzerColors.length];
+        buzzer.textContent = `Player ${i + 1}`;
+
+        const scoreContainer = document.createElement('div');
+        scoreContainer.className = 'buzzer-container';
+
+        const scoreLabel = document.createElement('label');
+        scoreLabel.className = 'score-label';
+        scoreLabel.textContent = 'Score:';
+
+        const scoreInput = document.createElement('input');
+        scoreInput.type = 'number';
+        scoreInput.id = `score${i + 1}`;
+        scoreInput.className = 'score-input';
+        scoreInput.value = '0';
+        scoreInput.min = '0';
+        scoreInput.step = '1000';
+
+        buzzerContainer.appendChild(nameLabel);
+        buzzerContainer.appendChild(nameInput);
+        buzzerContainer.appendChild(buzzer);
+        scoreContainer.appendChild(scoreLabel);
+        scoreContainer.appendChild(scoreInput);
+        buzzerRow.appendChild(buzzerContainer);
+        buzzerRow.appendChild(scoreContainer);
+
+        buzzers.push(buzzer);
+        nameInputs.push(nameInput);
+        scoreInputs.push(scoreInput);
+
+        nameInput.addEventListener('input', () => {
+          const name = nameInput.value.trim() || `Player ${i + 1}`;
+          buzzer.textContent = name;
+        });
+
+        scoreInput.addEventListener('input', () => {
+          let value = parseInt(scoreInput.value) || 0;
+          value = Math.round(value / 1000) * 1000;
+          scoreInput.value = value;
+        });
+
+        buzzer.addEventListener('click', () => {
+          if (isBuzzerActive) {
+            isBuzzerActive = false;
+            const playerName = nameInput.value.trim() || `Player ${i + 1}`;
+            status.textContent = `${playerName} buzzed first!`;
+            playBeep(buzzerFrequencies[i % buzzerFrequencies.length], 0.3);
+            buzzers.forEach(btn => btn.classList.add('disabled'));
+            buzzer.classList.remove('disabled');
+            buzzers.forEach(btn => btn.disabled = true);
+          }
+        });
+      }
+
+      if (!isAuthenticated) disableGameInterface();
+    }
+
+    let isAuthenticated = false;
+
+    function disableGameInterface() {
+      headerInput.disabled = true;
+      playersInput.disabled = true;
+      resetButton.disabled = true;
+      resetButton.classList.add('disabled');
+      nameInputs.forEach(input => input.disabled = true);
+      scoreInputs.forEach(input => input.disabled = true);
+      buzzers.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+      });
+    }
+
+    function enableGameInterface() {
+      headerInput.disabled = false;
+      playersInput.disabled = false;
+      resetButton.disabled = false;
+      resetButton.classList.remove('disabled');
+      nameInputs.forEach(input => input.disabled = false);
+      scoreInputs.forEach(input => input.disabled = false);
+      buzzers.forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('disabled');
+      });
+      isBuzzerActive = true;
+      status.textContent = 'Ready';
+    }
+
+    authButton.addEventListener('click', () => {
+      const enteredPassword = passwordInput.value;
+      if (enteredPassword === correctPassword) {
+        isAuthenticated = true;
+        passwordScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+        enableGameInterface();
+        authError.textContent = '';
+      } else {
+        authError.textContent = 'Incorrect password. Try again.';
+        passwordInput.value = '';
+      }
+    });
+
+    passwordInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') authButton.click();
+    });
+
+    headerInput.addEventListener('input', () => {
+      if (isAuthenticated) {
+        const headerText = headerInput.value.trim() || 'BILYONARIO QUIZ B';
+        mainHeader.textContent = headerText;
+        pageTitle.textContent = headerText;
+      }
+    });
+
+    playersInput.addEventListener('input', () => {
+      if (isAuthenticated) {
+        let numPlayers = parseInt(playersInput.value) || 4;
+        numPlayers = Math.min(Math.max(numPlayers, 2), 8);
+        playersInput.value = numPlayers;
+        generateBuzzers(numPlayers);
+      }
+    });
+
+    resetButton.addEventListener('click', () => {
+      if (isAuthenticated) {
+        isBuzzerActive = true;
+        status.textContent = 'Ready';
+        playBeep(220, 0.2);
+        buzzers.forEach(btn => {
+          btn.classList.remove('disabled');
+          btn.disabled = false;
+        });
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (isAuthenticated) {
+        if (event.key >= '1' && event.key <= '8' && isBuzzerActive) {
+          const index = parseInt(event.key) - 1;
+          if (index < buzzers.length) buzzers[index].click();
+        } else if (event.key.toLowerCase() === 'r') {
+          resetButton.click();
+        }
+      }
+    });
+
+    generateBuzzers(parseInt(playersInput.value) || 4);
+  </script>
+</body>
+</html>
