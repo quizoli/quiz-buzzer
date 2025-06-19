@@ -208,36 +208,6 @@
           startGame();
         }
       });
-        const playerName = nameInput.value.trim();
-        const password = passwordInput.value;
-
-        if (!playerName) {
-          authError.textContent = 'Please enter a name';
-          return;
-        }
-        localStorage.setItem('playerName', playerName);
-
-        if (password === 'quizmaster123') {
-          isHost = true;
-          hostControls.style.display = 'block';
-        }
-
-        passwordScreen.style.display = 'none';
-        gameScreen.style.display = 'block';
-        initFirebaseListeners();
-
-        if (isHost) {
-          db.ref('players').once('value').then(snapshot => {
-            if (!snapshot.exists()) {
-              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-              const players = {};
-              for (let i = 0; i < count; i++) {
-                players[`Player ${i + 1}`] = { score: 0 };
-              }
-              db.ref('players').set(players);
-            }
-          });
-        }
       });
 
       playersInput.addEventListener('input', () => {
