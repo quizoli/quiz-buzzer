@@ -19,6 +19,11 @@
 </head>
 <body>
   <div id="password-screen" class="container">
+    <div style="margin-bottom: 15px;">
+      <label for="name-input">Enter Player Name:</label>
+      <input type="text" id="name-input" placeholder="e.g., Player 1">
+      <button id="set-name-button">Set Name</button>
+    </div>
     <h1>Enter Password</h1>
     <input type="password" id="password-input">
     <button id="auth-button">Login</button>
@@ -166,7 +171,9 @@
 
 
 window.addEventListener('load', () => {
-      const playerName = localStorage.getItem('playerName');
+      const nameInputField = document.getElementById('name-input');
+      const setNameButton = document.getElementById('set-name-button');
+      let playerName = localStorage.getItem('playerName');
       const passwordInput = document.getElementById('password-input');
       const authButton = document.getElementById('auth-button');
       const passwordScreen = document.getElementById('password-screen');
@@ -180,6 +187,17 @@ window.addEventListener('load', () => {
       console.log('✅ UI loaded, password screen displayed');
 
       const correctPassword = 'quizmaster123';
+
+      setNameButton.addEventListener('click', () => {
+        const enteredName = nameInputField.value.trim();
+        if (enteredName !== '') {
+          localStorage.setItem('playerName', enteredName);
+          playerName = enteredName;
+          alert(`Player name set to: ${playerName}`);
+        } else {
+          alert('Please enter a valid name.');
+        }
+      });
 
       authButton.addEventListener('click', () => {
         if (!playerName) {
