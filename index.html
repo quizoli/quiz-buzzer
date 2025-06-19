@@ -1,246 +1,149 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quiz Buzzer Multiplayer</title>
-  <style>
-    body { font-family: Arial; text-align: center; background: #f0f0f0; margin: 0; padding: 20px; }
-    .container { max-width: 1000px; margin: auto; }
-    .buzzer-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
-    .buzzer-container { margin: 10px; display: flex; flex-direction: column; align-items: center; }
-    .buzzer { padding: 20px; font-size: 20px; background: #555; color: white; border: none; border-radius: 10px; width: 120px; }
-    .disabled { background: #aaa !important; cursor: not-allowed; }
-    .score-input, .name-input { margin-top: 5px; padding: 5px; font-size: 16px; width: 120px; text-align: center; }
-    #status { font-size: 24px; margin: 20px 0; font-weight: bold; }
-    #reset { margin-top: 20px; padding: 10px 30px; font-size: 16px; background: #222; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    #password-screen, #game-screen { display: none; }
-  </style>
-</head>
-<body>
-  <div id="password-screen" class="container">
-    <h1>Login</h1>
-    <input type="text" id="name-input" placeholder="Enter player name or 'host'"><br><br>
-    <input type="password" id="password-input" placeholder="Enter password">
-    <button id="auth-button">Login</button>
-    <div id="auth-error" style="color:red; margin-top: 10px;"></div>
-  </div>
-
-  <div id="game-screen" class="container">
-    <h1 id="status">Ready</h1>
-    <div id="host-controls" style="display:none;">
-      <label>Number of Players:</label>
-      <input type="number" id="players-input" min="2" max="8" value="4">
-    </div>
-    <div id="buzzer-row" class="buzzer-row"></div>
-    <button id="reset">Reset</button>
-  </div>
-
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCnZ3AjNQ4BFkNch5ybCkYv2TT-GwHzU3U",
-      authDomain: "oliver-s-quiz-game.firebaseapp.com",
-      databaseURL: "https://oliver-s-quiz-game-default-rtdb.firebaseio.com",
-      projectId: "oliver-s-quiz-game",
-      storageBucket: "oliver-s-quiz-game.appspot.com",
-      messagingSenderId: "723449396892",
-      appId: "1:723449396892:web:ef7f27418c17ea17092431"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    let isBuzzerActive = true;
-    let buzzers = [], nameInputs = [], scoreInputs = [];
-    let gameStatus, resetButton;
-    let isHost = false;
-
-    const buzzerFrequencies = [440, 523.25, 659.25, 880, 987.77, 1108.73, 1318.51, 1760];
-
-    function playBeep(freq, duration) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.value = 0.5;
-      osc.start();
-      osc.stop(ctx.currentTime + duration);
-    }
-
-    function syncBuzz(playerName, playerIndex) {
-      db.ref('buzzed').once('value').then(snapshot => {
-        if (!snapshot.exists()) {
-          db.ref('buzzed').set({ name: playerName, index: playerIndex });
-        }
-      });
-    }
-
-    function syncScore(name, delta) {
-      const ref = db.ref(`players/${name}/score`);
-      ref.once('value').then(snap => {
-        const current = snap.val() || 0;
-        ref.set(current + delta);
-      });
-    }
-
-    function resetGame() {
-      db.ref('buzzed').remove();
-    }
-
-    function initFirebaseListeners() {
-      db.ref('players').on('value', snapshot => {
-        const players = snapshot.val();
-        if (players) renderPlayers(players);
-      });
-
-      db.ref('buzzed').on('value', snapshot => {
-        const data = snapshot.val();
-        if (data) {
-          const playerName = data.name;
-          gameStatus.textContent = `${playerName} buzzed first!`;
-          isBuzzerActive = false;
-          buzzers.forEach(btn => {
-            btn.classList.add('disabled');
-            btn.disabled = true;
-          });
-          const i = buzzers.findIndex(btn => btn.dataset.name === playerName);
-          if (i !== -1) {
-            buzzers[i].classList.remove('disabled');
-            buzzers[i].disabled = false;
-            playBeep(buzzerFrequencies[i % buzzerFrequencies.length], 0.3);
-          }
-        } else {
-          isBuzzerActive = true;
-          gameStatus.textContent = 'Ready';
-          buzzers.forEach(btn => {
-            btn.classList.remove('disabled');
-            btn.disabled = false;
-          });
-        }
-      });
-    }
-
-    function renderPlayers(players) {
-      const buzzerRow = document.getElementById('buzzer-row');
-      buzzerRow.innerHTML = '';
-      buzzers = [], nameInputs = [], scoreInputs = [];
-      const names = Object.keys(players);
-      names.forEach((name, i) => {
-        const container = document.createElement('div');
-        container.className = 'buzzer-container';
-
-        const nameInput = document.createElement('input');
-        nameInput.className = 'name-input';
-        nameInput.value = name;
-        nameInput.disabled = true;
-        nameInputs.push(nameInput);
-
-        const buzzer = document.createElement('button');
-        buzzer.className = 'buzzer';
-        buzzer.textContent = name;
-        buzzer.dataset.name = name;
-        buzzers.push(buzzer);
-
-        const score = document.createElement('input');
-        score.type = 'number';
-        score.value = players[name].score || 0;
-        score.className = 'score-input';
-        score.readOnly = true;
-        scoreInputs.push(score);
-
-        buzzer.addEventListener('click', () => {
-          if (!isBuzzerActive) return;
-          const playerName = localStorage.getItem('playerName');
-          if (playerName !== name) return;
-          syncBuzz(name, i);
-          syncScore(name, 1000);
-        });
-
-        container.appendChild(nameInput);
-        container.appendChild(buzzer);
-        container.appendChild(score);
-        buzzerRow.appendChild(container);
-      });
-    }
-
-    window.addEventListener('load', () => {
-      const nameInput = document.getElementById('name-input');
-      const passwordInput = document.getElementById('password-input');
-      const authButton = document.getElementById('auth-button');
-      const passwordScreen = document.getElementById('password-screen');
-      const gameScreen = document.getElementById('game-screen');
-      const hostControls = document.getElementById('host-controls');
-      const authError = document.getElementById('auth-error');
-      const playersInput = document.getElementById('players-input');
-      gameStatus = document.getElementById('status');
-      resetButton = document.getElementById('reset');
-
-      authButton.addEventListener('click', () => {
-        const playerName = nameInput.value.trim();
-        const password = passwordInput.value;
-
-        if (!playerName) {
-          authError.textContent = 'Please enter a name';
-          return;
-        }
-
-        if (password === 'quizmaster123') {
-          isHost = true;
-          localStorage.setItem('playerName', 'host');
-        } else {
-          localStorage.setItem('playerName', playerName);
-        }
-
-        if (!isHost) {
-          db.ref(`players/${playerName}`).once('value').then(snapshot => {
-            if (!snapshot.exists()) {
-              authError.textContent = 'Name not found. Ask host to assign it.';
-              return;
-            } else {
-              startGame();
-            }
-          });
-        } else {
-          startGame();
-        }
-      });
-
-      playersInput.addEventListener('input', () => {
-        if (!isHost) return;
-        const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-        const players = {};
-        for (let i = 0; i < count; i++) {
-          players[`Player ${i + 1}`] = { score: 0 };
-        }
-        db.ref('players').set(players);
-      });
-
-      resetButton.addEventListener('click', resetGame);
-
-      function startGame() {
-        passwordScreen.style.display = 'none';
-        gameScreen.style.display = 'block';
-        initFirebaseListeners();
-
-        if (isHost) {
-          hostControls.style.display = 'block';
-          db.ref('players').once('value').then(snapshot => {
-            if (!snapshot.exists()) {
-              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-              const players = {};
-              for (let i = 0; i < count; i++) {
-                players[`Player ${i + 1}`] = { score: 0 };
-              }
-              db.ref('players').set(players);
-            }
-          });
-        }
-      }
-    });
-  </script>
-</body>
-</html>
+--- quizbuzzer_two_tone-4.html
++++ quizbuzzer_two_tone-4.html
+@@ head
+-  </style>
+-</head>
++    </style>
++
++  <!-- Firebase SDKs -->
++  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
++  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
++</head>
+@@ body
+-  <script>
++  <script>
++    // ─── 1) FIREBASE INITIALIZATION ─────────────────────────────────────────────
++    const firebaseConfig = {
++      apiKey: "YOUR_API_KEY",
++      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
++      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
++      projectId: "YOUR_PROJECT_ID",
++      storageBucket: "YOUR_PROJECT_ID.appspot.com",
++      messagingSenderId: "SENDER_ID",
++      appId: "APP_ID"
++    };
++    firebase.initializeApp(firebaseConfig);
++    const db      = firebase.database();
++    const gameRef = db.ref('games/quizGame');  // all clients read/write here
++
++    // ─── 2) LOCAL VARIABLES & UTILS ─────────────────────────────────────────────
+     const AudioContext = window.AudioContext || window.webkitAudioContext;
+     const audioCtx = new AudioContext();
+     function playBeep(frequency1, duration) { /* …same as before… */ }
+@@
+-    const correctPassword = 'quizmaster123';
++    const correctPassword = 'quizmaster123';
+@@
+-    let isBuzzerActive = true;
++    let isBuzzerActive = true;
+     let buzzers = [], nameInputs = [], scoreInputs = [];
+     const status = document.getElementById('status');
+@@
+     function generateBuzzers(numPlayers) {
+       buzzerRow.innerHTML = '';
+@@
+       for (let i = 0; i < numPlayers; i++) {
+         /* …create nameInput, buzzer, scoreInput… */
+         buzzer.addEventListener('click', () => {
+-          if (isBuzzerActive) {
+-            isBuzzerActive = false;
+-            /* local-only buzz logic… */
+-          }
++          // push to Firebase only once
++          gameRef.child('buzz').once('value').then(snap => {
++            if (!snap.exists()) {
++              isBuzzerActive = false;
++              const playerName = nameInput.value.trim() || `Player ${i+1}`;
++              gameRef.child('buzz').set({
++                index: i,
++                name: playerName,
++                freq: buzzerFrequencies[i % buzzerFrequencies.length],
++                ts: Date.now()
++              });
++            }
++          });
+         });
+       }
+     }
+@@
+-    authButton.addEventListener('click', () => {
++    authButton.addEventListener('click', () => {
+       const enteredPassword = passwordInput.value;
+       if (enteredPassword === correctPassword) {
+         passwordScreen.style.display = 'none';
+         gameScreen.style.display = 'block';
+-        generateBuzzers(parseInt(playersInput.value));
++        const n = parseInt(playersInput.value);
++        generateBuzzers(n);
++        // host writes settings once
++        gameRef.child('settings').set({
++          header: headerInput.value.trim(),
++          numPlayers: n
++        });
+         authError.textContent = '';
+       } else {
+         authError.textContent = 'Incorrect password. Try again.';
+@@
+-    resetButton.addEventListener('click', () => {
+-      isBuzzerActive = true;
+-      status.textContent = 'Ready';
+-      playBeep(220, 0.2);
+-      buzzers.forEach(btn => {
+-        btn.classList.remove('disabled');
+-        btn.disabled = false;
+-      });
+-    });
++    resetButton.addEventListener('click', () => {
++      // wiping the buzz node resets everyone
++      gameRef.child('buzz').remove();
++      playBeep(220, 0.2);
++    });
++
++    // ─── 3) REAL-TIME LISTENERS ────────────────────────────────────────────────
++    // 3a) Update UI when host changes title or player count
++    gameRef.child('settings').on('value', snap => {
++      const s = snap.val();
++      if (s) {
++        mainHeader.textContent = s.header;
++        pageTitle.textContent = s.header;
++        if (parseInt(playersInput.value) !== s.numPlayers) {
++          playersInput.value = s.numPlayers;
++          generateBuzzers(s.numPlayers);
++        }
++      }
++    });
++
++    // 3b) React to the first buzz (or reset)
++    gameRef.child('buzz').on('value', snap => {
++      const b = snap.val();
++      if (b) {
++        isBuzzerActive = false;
++        status.textContent = `${b.name} buzzed first!`;
++        playBeep(b.freq, 0.3);
++        buzzers.forEach(btn => btn.disabled = true);
++        buzzers[b.index].disabled = false;
++      } else {
++        isBuzzerActive = true;
++        status.textContent = 'Ready';
++        buzzers.forEach(btn => {
++          btn.classList.remove('disabled');
++          btn.disabled = false;
++        });
++      }
++    });
++
+-    document.addEventListener('keydown', (event) => { /* … */ });
+-    generateBuzzers(parseInt(playersInput.value) || 4);
++    document.addEventListener('keydown', (event) => {
++      if (event.key >= '1' && event.key <= '8' && isBuzzerActive) {
++        const idx = parseInt(event.key)-1;
++        if (idx < buzzers.length) buzzers[idx].click();
++      } else if (event.key.toLowerCase() === 'r') {
++        resetButton.click();
++      }
++    });
++
++    // kick things off (clients will get settings via the listener)
++    // the host’s own settings write will populate it
++    generateBuzzers(parseInt(playersInput.value) || 4);
+   </script>
