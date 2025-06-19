@@ -150,6 +150,7 @@
 
         buzzer.addEventListener('click', () => {
           if (!isBuzzerActive) return;
+          if (localStorage.getItem('playerName') !== name) return; // Only allow owner to buzz
           syncBuzz(name, i);
           syncScore(name, 1000);
         });
@@ -163,9 +164,9 @@
 
     let isHost = false;
 
-initFirebaseListeners();
 
 window.addEventListener('load', () => {
+      const playerName = localStorage.getItem('playerName');
       const passwordInput = document.getElementById('password-input');
       const authButton = document.getElementById('auth-button');
       const passwordScreen = document.getElementById('password-screen');
@@ -181,6 +182,17 @@ window.addEventListener('load', () => {
       const correctPassword = 'quizmaster123';
 
       authButton.addEventListener('click', () => {
+        if (!playerName) {
+          const namePrompt = prompt("Enter your player name (must match a slot like 'Player 1'):");
+          if (namePrompt && namePrompt.trim() !== '') {
+            localStorage.setItem('playerName', namePrompt.trim());
+            location.reload();
+            return;
+          } else {
+            authError.textContent = 'You must enter a valid player name.';
+            return;
+          }
+        }
         if (passwordInput.value === correctPassword) {
           passwordScreen.style.display = 'none';
           gameScreen.style.display = 'block';
