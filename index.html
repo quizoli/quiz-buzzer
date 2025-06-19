@@ -51,10 +51,18 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let isBuzzerActive = true;
-    let buzzers = [], nameInputs = [], scoreInputs = [];
-    let gameStatus, resetButton;
     let isHost = false;
+    let playerName = '';
+    let isBuzzerActive = true;
+
+    const gameStatus = document.getElementById('status');
+    const resetButton = document.getElementById('reset');
+    const buzzerRow = document.getElementById('buzzer-row');
+    const hostControls = document.getElementById('host-controls');
+    const playersInput = document.getElementById('players-input');
+    const passwordScreen = document.getElementById('password-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const authError = document.getElementById('auth-error');
 
     const buzzerFrequencies = [440, 523.25, 659.25, 880, 987.77, 1108.73, 1318.51, 1760];
 
@@ -71,65 +79,9 @@
       osc.stop(ctx.currentTime + duration);
     }
 
-    function syncBuzz(playerName, playerIndex) {
-      db.ref('buzzed').once('value').then(snapshot => {
-        if (!snapshot.exists()) {
-          db.ref('buzzed').set({ name: playerName, index: playerIndex });
-        }
-      });
-    }
-
-    function syncScore(name, delta) {
-      const ref = db.ref(`players/${name}/score`);
-      ref.once('value').then(snap => {
-        const current = snap.val() || 0;
-        ref.set(current + delta);
-      });
-    }
-
-    function resetGame() {
-      db.ref('buzzed').remove();
-    }
-
-    function initFirebaseListeners() {
-      db.ref('players').on('value', snapshot => {
-        const players = snapshot.val();
-        if (players) renderPlayers(players);
-      });
-
-      db.ref('buzzed').on('value', snapshot => {
-        const data = snapshot.val();
-        if (data) {
-          const playerName = data.name;
-          gameStatus.textContent = `${playerName} buzzed first!`;
-          isBuzzerActive = false;
-          buzzers.forEach(btn => {
-            btn.classList.add('disabled');
-            btn.disabled = true;
-          });
-          const i = buzzers.findIndex(btn => btn.dataset.name === playerName);
-          if (i !== -1) {
-            buzzers[i].classList.remove('disabled');
-            buzzers[i].disabled = false;
-            playBeep(buzzerFrequencies[i % buzzerFrequencies.length], 0.3);
-          }
-        } else {
-          isBuzzerActive = true;
-          gameStatus.textContent = 'Ready';
-          buzzers.forEach(btn => {
-            btn.classList.remove('disabled');
-            btn.disabled = false;
-          });
-        }
-      });
-    }
-
     function renderPlayers(players) {
-      const buzzerRow = document.getElementById('buzzer-row');
       buzzerRow.innerHTML = '';
-      buzzers = [], nameInputs = [], scoreInputs = [];
-      const names = Object.keys(players);
-      names.forEach((name, i) => {
+      Object.entries(players).forEach(([name, data], i) => {
         const container = document.createElement('div');
         container.className = 'buzzer-container';
 
@@ -137,27 +89,26 @@
         nameInput.className = 'name-input';
         nameInput.value = name;
         nameInput.disabled = true;
-        nameInputs.push(nameInput);
 
         const buzzer = document.createElement('button');
         buzzer.className = 'buzzer';
         buzzer.textContent = name;
         buzzer.dataset.name = name;
-        buzzers.push(buzzer);
 
         const score = document.createElement('input');
         score.type = 'number';
-        score.value = players[name].score || 0;
+        score.value = data.score || 0;
         score.className = 'score-input';
         score.readOnly = true;
-        scoreInputs.push(score);
 
         buzzer.addEventListener('click', () => {
-          if (!isBuzzerActive) return;
-          const playerName = localStorage.getItem('playerName');
-          if (playerName !== name) return;
-          syncBuzz(name, i);
-          syncScore(name, 1000);
+          if (!isBuzzerActive || playerName !== name) return;
+          db.ref('buzzed').once('value').then(snap => {
+            if (!snap.exists()) {
+              db.ref('buzzed').set({ name });
+              db.ref(`players/${name}/score`).transaction(score => (score || 0) + 1000);
+            }
+          });
         });
 
         container.appendChild(nameInput);
@@ -167,81 +118,64 @@
       });
     }
 
-    window.addEventListener('load', () => {
-      const nameInput = document.getElementById('name-input');
-      const passwordInput = document.getElementById('password-input');
-      const authButton = document.getElementById('auth-button');
-      const passwordScreen = document.getElementById('password-screen');
-      const gameScreen = document.getElementById('game-screen');
-      const hostControls = document.getElementById('host-controls');
-      const authError = document.getElementById('auth-error');
-      const playersInput = document.getElementById('players-input');
-      gameStatus = document.getElementById('status');
-      resetButton = document.getElementById('reset');
+    function listenToGame() {
+      db.ref('players').on('value', snap => {
+        const players = snap.val();
+        if (players) renderPlayers(players);
+      });
 
-      authButton.addEventListener('click', () => {
-        const playerName = nameInput.value.trim();
-        const password = passwordInput.value;
-
-        if (!playerName) {
-          authError.textContent = 'Please enter a name';
-          return;
-        }
-
-        if (password === 'quizmaster123') {
-          isHost = true;
-          localStorage.setItem('playerName', 'host');
+      db.ref('buzzed').on('value', snap => {
+        const data = snap.val();
+        if (data) {
+          gameStatus.textContent = `${data.name} buzzed first!`;
+          isBuzzerActive = false;
         } else {
-          localStorage.setItem('playerName', playerName);
-        }
-
-        if (!isHost) {
-          db.ref(`players/${playerName}`).once('value').then(snapshot => {
-            if (!snapshot.exists()) {
-              authError.textContent = 'Name not found. Ask host to assign it.';
-              return;
-            } else {
-              startGame();
-            }
-          });
-        } else {
-          startGame();
+          gameStatus.textContent = 'Ready';
+          isBuzzerActive = true;
         }
       });
-      });
+    }
 
-      playersInput.addEventListener('input', () => {
-        if (!isHost) return;
-        const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-        const players = {};
-        for (let i = 0; i < count; i++) {
-          players[`Player ${i + 1}`] = { score: 0 };
-        }
-        db.ref('players').set(players);
-      });
+    document.getElementById('auth-button').onclick = () => {
+      playerName = document.getElementById('name-input').value.trim();
+      const pass = document.getElementById('password-input').value;
 
-      resetButton.addEventListener('click', resetGame);
-
-      function startGame() {
-        passwordScreen.style.display = 'none';
-        gameScreen.style.display = 'block';
-        initFirebaseListeners();
-
-        if (isHost) {
-          hostControls.style.display = 'block';
-          db.ref('players').once('value').then(snapshot => {
-            if (!snapshot.exists()) {
-              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-              const players = {};
-              for (let i = 0; i < count; i++) {
-                players[`Player ${i + 1}`] = { score: 0 };
-              }
-              db.ref('players').set(players);
-            }
-          });
-        }
+      if (!playerName) {
+        authError.textContent = 'Please enter your name';
+        return;
       }
+
+      if (pass === 'quizmaster123') {
+        isHost = true;
+        gameScreen.style.display = 'block';
+        passwordScreen.style.display = 'none';
+        hostControls.style.display = 'block';
+        db.ref('players').set({});
+      } else {
+        db.ref(`players/${playerName}`).once('value').then(snap => {
+          if (snap.exists()) {
+            gameScreen.style.display = 'block';
+            passwordScreen.style.display = 'none';
+          } else {
+            authError.textContent = 'Name not found. Ask host to set players first.';
+          }
+        });
+      }
+
+      listenToGame();
+    };
+
+    playersInput.addEventListener('input', () => {
+      if (!isHost) return;
+      const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+      const players = {};
+      for (let i = 0; i < count; i++) {
+        players[`Player ${i + 1}`] = { score: 0 };
+      }
+      db.ref('players').set(players);
     });
+
+    resetButton.onclick = () => db.ref('buzzed').remove();
   </script>
 </body>
 </html>
