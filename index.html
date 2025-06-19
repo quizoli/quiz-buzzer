@@ -158,6 +158,19 @@
     }
 
     window.addEventListener('load', () => {
+      const passwordInput = document.getElementById('password-input');
+      const authButton = document.getElementById('auth-button');
+      const passwordScreen = document.getElementById('password-screen');
+      const gameScreen = document.getElementById('game-screen');
+      const authError = document.getElementById('auth-error');
+      const playersInput = document.getElementById('players-input');
+      gameStatus = document.getElementById('status');
+      resetButton = document.getElementById('reset');
+
+      passwordScreen.style.display = 'block';
+      console.log('✅ UI loaded, password screen displayed');
+
+      const correctPassword = 'quizmaster123';
       document.getElementById('password-screen').style.display = 'block';
       const passwordInput = document.getElementById('password-input');
       const authButton = document.getElementById('auth-button');
