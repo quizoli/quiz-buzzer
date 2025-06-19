@@ -76,7 +76,7 @@
     }
 
     function syncScore(name, delta) {
-      const ref = db.ref(`scores/${name}`);
+      const ref = db.ref(`players/${name}/score`);
       ref.once('value').then(snap => {
         const current = snap.val() || 0;
         ref.set(current + delta);
@@ -88,10 +88,14 @@
     }
 
     function initFirebaseListeners() {
+      db.ref('players').on('value', snapshot => {
+        const players = snapshot.val();
+        if (players) renderPlayers(players);
+      });
+
       db.ref('buzzed').on('value', snapshot => {
         const data = snapshot.val();
         if (data) {
-          const playerIndex = data.index;
           const playerName = data.name;
           gameStatus.textContent = `${playerName} buzzed first!`;
           isBuzzerActive = false;
@@ -99,10 +103,11 @@
             btn.classList.add('disabled');
             btn.disabled = true;
           });
-          if (buzzers[playerIndex]) {
-            buzzers[playerIndex].classList.remove('disabled');
-            buzzers[playerIndex].disabled = false;
-            playBeep(buzzerFrequencies[playerIndex % buzzerFrequencies.length], 0.3);
+          const i = buzzers.findIndex(btn => btn.dataset.name === playerName);
+          if (i !== -1) {
+            buzzers[i].classList.remove('disabled');
+            buzzers[i].disabled = false;
+            playBeep(buzzerFrequencies[i % buzzerFrequencies.length], 0.3);
           }
         } else {
           isBuzzerActive = true;
@@ -115,46 +120,45 @@
       });
     }
 
-    function generateBuzzers(numPlayers) {
+    function renderPlayers(players) {
       const buzzerRow = document.getElementById('buzzer-row');
       buzzerRow.innerHTML = '';
-      buzzers = [];
-      nameInputs = [];
-      scoreInputs = [];
-
-      for (let i = 0; i < numPlayers; i++) {
+      buzzers = [], nameInputs = [], scoreInputs = [];
+      const names = Object.keys(players);
+      names.forEach((name, i) => {
         const container = document.createElement('div');
         container.className = 'buzzer-container';
 
         const nameInput = document.createElement('input');
         nameInput.className = 'name-input';
-        nameInput.placeholder = `Player ${i + 1}`;
+        nameInput.value = name;
+        nameInput.disabled = true;
         nameInputs.push(nameInput);
 
         const buzzer = document.createElement('button');
         buzzer.className = 'buzzer';
-        buzzer.textContent = `Buzz ${i + 1}`;
+        buzzer.textContent = name;
+        buzzer.dataset.name = name;
         buzzers.push(buzzer);
 
         const score = document.createElement('input');
         score.type = 'number';
-        score.value = 0;
+        score.value = players[name].score || 0;
         score.className = 'score-input';
         score.readOnly = true;
         scoreInputs.push(score);
 
         buzzer.addEventListener('click', () => {
           if (!isBuzzerActive) return;
-          const player = nameInput.value.trim() || `Player ${i + 1}`;
-          syncBuzz(player, i);
-          syncScore(player, 1000);
+          syncBuzz(name, i);
+          syncScore(name, 1000);
         });
 
         container.appendChild(nameInput);
         container.appendChild(buzzer);
         container.appendChild(score);
         buzzerRow.appendChild(container);
-      }
+      });
     }
 
     window.addEventListener('load', () => {
@@ -171,14 +175,22 @@
       console.log('✅ UI loaded, password screen displayed');
 
       const correctPassword = 'quizmaster123';
-      
 
       authButton.addEventListener('click', () => {
         if (passwordInput.value === correctPassword) {
           passwordScreen.style.display = 'none';
           gameScreen.style.display = 'block';
           initFirebaseListeners();
-          generateBuzzers(parseInt(playersInput.value));
+          db.ref('players').once('value').then(snapshot => {
+            if (!snapshot.exists()) {
+              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+              const players = {};
+              for (let i = 0; i < count; i++) {
+                players[`Player ${i + 1}`] = { score: 0 };
+              }
+              db.ref('players').set(players);
+            }
+          });
         } else {
           authError.textContent = 'Incorrect password';
         }
@@ -186,7 +198,11 @@
 
       playersInput.addEventListener('input', () => {
         const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-        generateBuzzers(count);
+        const players = {};
+        for (let i = 0; i < count; i++) {
+          players[`Player ${i + 1}`] = { score: 0 };
+        }
+        db.ref('players').set(players);
       });
 
       resetButton.addEventListener('click', () => {
