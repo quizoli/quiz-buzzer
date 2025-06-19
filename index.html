@@ -1,39 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quiz Buzzer Multiplayer</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Buzzer Multiplayer — Clean Version</title>
   <style>
     body { font-family: Arial; text-align: center; background: #f0f0f0; margin: 0; padding: 20px; }
-    .container { max-width: 1000px; margin: auto; }
+    .container { max-width: 800px; margin: auto; }
     .buzzer-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
-    .buzzer-container { margin: 10px; display: flex; flex-direction: column; align-items: center; }
-    .buzzer { padding: 20px; font-size: 20px; background: #555; color: white; border: none; border-radius: 10px; width: 120px; }
-    .disabled { background: #aaa !important; cursor: not-allowed; }
-    .score-input, .name-input { margin-top: 5px; padding: 5px; font-size: 16px; width: 120px; text-align: center; }
-    #status { font-size: 24px; margin: 20px 0; font-weight: bold; }
-    #reset { margin-top: 20px; padding: 10px 30px; font-size: 16px; background: #222; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    #password-screen, #game-screen { display: none; }
+    .buzzer { padding: 20px; font-size: 20px; background: #555; color: white; border: none; border-radius: 10px; margin: 10px; width: 140px; }
+    .disabled { background: #aaa; cursor: not-allowed; }
+    input { margin: 5px; padding: 8px; font-size: 16px; }
+    #status { font-size: 24px; margin: 20px 0; }
   </style>
 </head>
 <body>
-  <div id="password-screen" class="container">
-    <h1>Login</h1>
-    <input type="text" id="name-input" placeholder="Enter player name or 'host'"><br><br>
-    <input type="password" id="password-input" placeholder="Enter password">
-    <button id="auth-button">Login</button>
-    <div id="auth-error" style="color:red; margin-top: 10px;"></div>
+  <div id="login" class="container">
+    <h1>Join or Host Quiz</h1>
+    <input id="room-input" placeholder="Room code (e.g. QUIZ1)" />
+    <input id="name-input" placeholder="Your name / host" />
+    <input id="pass-input" type="password" placeholder="Host password" />
+    <button id="btn-login">Enter</button>
+    <div id="err" style="color:red"></div>
   </div>
 
-  <div id="game-screen" class="container">
-    <h1 id="status">Ready</h1>
-    <div id="host-controls" style="display:none;">
-      <label>Number of Players:</label>
-      <input type="number" id="players-input" min="2" max="8" value="4">
+  <div id="game" class="container" hidden>
+    <h1 id="status">Waiting...</h1>
+    <div id="host-panel" hidden>
+      <label>Player slots: <input id="slot-count" type="number" min="2" max="8" value="4" /></label>
+      <button id="btn-create">Create Room</button>
+      <button id="btn-reset">Reset Buzzers</button>
     </div>
-    <div id="buzzer-row" class="buzzer-row"></div>
-    <button id="reset">Reset</button>
+    <div id="buzzers" class="buzzer-row"></div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -51,131 +48,94 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let isHost = false;
-    let playerName = '';
-    let isBuzzerActive = true;
+    const login = document.getElementById('login');
+    const game = document.getElementById('game');
+    const roomInput = document.getElementById('room-input');
+    const nameInput = document.getElementById('name-input');
+    const passInput = document.getElementById('pass-input');
+    const btnLogin = document.getElementById('btn-login');
+    const err = document.getElementById('err');
+    const statusEl = document.getElementById('status');
+    const hostPanel = document.getElementById('host-panel');
+    const slotCount = document.getElementById('slot-count');
+    const btnCreate = document.getElementById('btn-create');
+    const btnReset = document.getElementById('btn-reset');
+    const buzzersEl = document.getElementById('buzzers');
 
-    const gameStatus = document.getElementById('status');
-    const resetButton = document.getElementById('reset');
-    const buzzerRow = document.getElementById('buzzer-row');
-    const hostControls = document.getElementById('host-controls');
-    const playersInput = document.getElementById('players-input');
-    const passwordScreen = document.getElementById('password-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const authError = document.getElementById('auth-error');
+    let room, name, isHost = false, buzzActive = true;
 
-    const buzzerFrequencies = [440, 523.25, 659.25, 880, 987.77, 1108.73, 1318.51, 1760];
-
-    function playBeep(freq, duration) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.value = 0.5;
-      osc.start();
-      osc.stop(ctx.currentTime + duration);
-    }
-
-    function renderPlayers(players) {
-      buzzerRow.innerHTML = '';
-      Object.entries(players).forEach(([name, data], i) => {
-        const container = document.createElement('div');
-        container.className = 'buzzer-container';
-
-        const nameInput = document.createElement('input');
-        nameInput.className = 'name-input';
-        nameInput.value = name;
-        nameInput.disabled = true;
-
-        const buzzer = document.createElement('button');
-        buzzer.className = 'buzzer';
-        buzzer.textContent = name;
-        buzzer.dataset.name = name;
-
-        const score = document.createElement('input');
-        score.type = 'number';
-        score.value = data.score || 0;
-        score.className = 'score-input';
-        score.readOnly = true;
-
-        buzzer.addEventListener('click', () => {
-          if (!isBuzzerActive || playerName !== name) return;
-          db.ref('buzzed').once('value').then(snap => {
-            if (!snap.exists()) {
-              db.ref('buzzed').set({ name });
-              db.ref(`players/${name}/score`).transaction(score => (score || 0) + 1000);
-            }
-          });
-        });
-
-        container.appendChild(nameInput);
-        container.appendChild(buzzer);
-        container.appendChild(score);
-        buzzerRow.appendChild(container);
-      });
-    }
-
-    function listenToGame() {
-      db.ref('players').on('value', snap => {
-        const players = snap.val();
-        if (players) renderPlayers(players);
-      });
-
-      db.ref('buzzed').on('value', snap => {
-        const data = snap.val();
-        if (data) {
-          gameStatus.textContent = `${data.name} buzzed first!`;
-          isBuzzerActive = false;
-        } else {
-          gameStatus.textContent = 'Ready';
-          isBuzzerActive = true;
-        }
-      });
-    }
-
-    document.getElementById('auth-button').onclick = () => {
-      playerName = document.getElementById('name-input').value.trim();
-      const pass = document.getElementById('password-input').value;
-
-      if (!playerName) {
-        authError.textContent = 'Please enter your name';
+    btnLogin.onclick = () => {
+      err.textContent = '';
+      room = roomInput.value.trim();
+      name = nameInput.value.trim();
+      const pass = passInput.value;
+      if (!room || !name) {
+        err.textContent = "Enter room & name";
         return;
       }
-
-      if (pass === 'quizmaster123') {
-        isHost = true;
-        gameScreen.style.display = 'block';
-        passwordScreen.style.display = 'none';
-        hostControls.style.display = 'block';
-        db.ref('players').set({});
-      } else {
-        db.ref(`players/${playerName}`).once('value').then(snap => {
-          if (snap.exists()) {
-            gameScreen.style.display = 'block';
-            passwordScreen.style.display = 'none';
-          } else {
-            authError.textContent = 'Name not found. Ask host to set players first.';
-          }
-        });
-      }
-
-      listenToGame();
+      isHost = (pass === 'quizmaster123');
+      login.hidden = true;
+      game.hidden = false;
+      if (isHost) hostPanel.hidden = false;
+      listenRoom();
     };
 
-    playersInput.addEventListener('input', () => {
-      if (!isHost) return;
-      const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+    btnCreate.onclick = () => {
+      const count = Math.max(2, Math.min(8, +slotCount.value));
       const players = {};
-      for (let i = 0; i < count; i++) {
-        players[`Player ${i + 1}`] = { score: 0 };
-      }
-      db.ref('players').set(players);
-    });
+      for (let i = 1; i <= count; i++) players["Slot" + i] = { name: null, score: 0 };
+      db.ref(`rooms/${room}/slots`).set(players);
+    };
 
-    resetButton.onclick = () => db.ref('buzzed').remove();
+    btnReset.onclick = () => {
+      db.ref(`rooms/${room}/buzzed`).remove();
+    };
+
+    function listenRoom() {
+      db.ref(`rooms/${room}/slots`).on('value', snap => {
+        const slots = snap.val();
+        if (!slots && !isHost) {
+          statusEl.textContent = "Waiting for host";
+          return;
+        }
+        renderSlots(slots);
+      });
+      db.ref(`rooms/${room}/buzzed`).on('value', snap => {
+        const data = snap.val();
+        buzzActive = !data;
+        statusEl.textContent = data ? data.name + " buzzed!" : "Ready";
+        buzzersEl.querySelectorAll('button').forEach(b => {
+          b.disabled = !buzzActive || b.dataset.name === data?.name;
+        });
+      });
+    }
+
+    function renderSlots(slots) {
+      buzzersEl.innerHTML = '';
+      for (const id in slots) {
+        let slot = slots[id];
+        let displayName = slot.name || (isHost ? `[Assign]` : `[Waiting]`);
+        const btn = document.createElement('button');
+        btn.textContent = displayName;
+        btn.className = 'buzzer';
+        btn.disabled = !slot.name || (!buzzActive && !(slot.name === name));
+        btn.dataset.name = slot.name || '';
+
+        btn.onclick = () => {
+          if (!slot.name && isHost) {
+            const newName = prompt("Enter name for slot " + id);
+            if (newName) db.ref(`rooms/${room}/slots/${id}/name`).set(newName);
+          } else if (!slot.name && !isHost) {
+            db.ref(`rooms/${room}/slots/${id}/name`).set(name);
+          } else if (slot.name === name && buzzActive) {
+            db.ref(`rooms/${room}/buzzed`).set({ name });
+            db.ref(`rooms/${room}/slots/${id}/score`).transaction(s => (s || 0) + 1000);
+          }
+        };
+
+        buzzersEl.appendChild(btn);
+      }
+    }
   </script>
 </body>
 </html>
