@@ -19,21 +19,19 @@
 </head>
 <body>
   <div id="password-screen" class="container">
-    <div style="margin-bottom: 15px;">
-      <label for="name-input">Enter Player Name:</label>
-      <input type="text" id="name-input" placeholder="e.g., Player 1">
-      <button id="set-name-button">Set Name</button>
-    </div>
-    <h1>Enter Password</h1>
-    <input type="password" id="password-input">
+    <h1>Login</h1>
+    <input type="text" id="name-input" placeholder="Enter player name or 'host'"><br><br>
+    <input type="password" id="password-input" placeholder="Enter password">
     <button id="auth-button">Login</button>
-    <div id="auth-error" style="color:red;"></div>
+    <div id="auth-error" style="color:red; margin-top: 10px;"></div>
   </div>
 
   <div id="game-screen" class="container">
     <h1 id="status">Ready</h1>
-    <label>Number of Players:</label>
-    <input type="number" id="players-input" min="2" max="8" value="4">
+    <div id="host-controls" style="display:none;">
+      <label>Number of Players:</label>
+      <input type="number" id="players-input" min="2" max="8" value="4">
+    </div>
     <div id="buzzer-row" class="buzzer-row"></div>
     <button id="reset">Reset</button>
   </div>
@@ -56,6 +54,7 @@
     let isBuzzerActive = true;
     let buzzers = [], nameInputs = [], scoreInputs = [];
     let gameStatus, resetButton;
+    let isHost = false;
 
     const buzzerFrequencies = [440, 523.25, 659.25, 880, 987.77, 1108.73, 1318.51, 1760];
 
@@ -155,7 +154,8 @@
 
         buzzer.addEventListener('click', () => {
           if (!isBuzzerActive) return;
-          if (localStorage.getItem('playerName') !== name) return; // Only allow owner to buzz
+          const playerName = localStorage.getItem('playerName');
+          if (playerName !== name) return;
           syncBuzz(name, i);
           syncScore(name, 1000);
         });
@@ -167,83 +167,62 @@
       });
     }
 
-    let isHost = false;
-
-
-window.addEventListener('load', () => {
-      const nameInputField = document.getElementById('name-input');
-      const setNameButton = document.getElementById('set-name-button');
-      let playerName = localStorage.getItem('playerName');
+    window.addEventListener('load', () => {
+      const nameInput = document.getElementById('name-input');
       const passwordInput = document.getElementById('password-input');
       const authButton = document.getElementById('auth-button');
       const passwordScreen = document.getElementById('password-screen');
       const gameScreen = document.getElementById('game-screen');
+      const hostControls = document.getElementById('host-controls');
       const authError = document.getElementById('auth-error');
       const playersInput = document.getElementById('players-input');
       gameStatus = document.getElementById('status');
       resetButton = document.getElementById('reset');
 
-      passwordScreen.style.display = 'block';
-      console.log('✅ UI loaded, password screen displayed');
-
-      const correctPassword = 'quizmaster123';
-
-      setNameButton.addEventListener('click', () => {
-        const enteredName = nameInputField.value.trim();
-        if (enteredName !== '') {
-          localStorage.setItem('playerName', enteredName);
-          playerName = enteredName;
-          alert(`Player name set to: ${playerName}`);
-        } else {
-          alert('Please enter a valid name.');
-        }
-      });
-
       authButton.addEventListener('click', () => {
+        const playerName = nameInput.value.trim();
+        const password = passwordInput.value;
+
         if (!playerName) {
-          const namePrompt = prompt("Enter your player name (must match a slot like 'Player 1'):");
-          if (namePrompt && namePrompt.trim() !== '') {
-            localStorage.setItem('playerName', namePrompt.trim());
-            location.reload();
-            return;
-          } else {
-            authError.textContent = 'You must enter a valid player name.';
-            return;
-          }
+          authError.textContent = 'Please enter a name';
+          return;
         }
-        if (passwordInput.value === correctPassword) {
-          passwordScreen.style.display = 'none';
-          gameScreen.style.display = 'block';
-          initFirebaseListeners();
+        localStorage.setItem('playerName', playerName);
+
+        if (password === 'quizmaster123') {
+          isHost = true;
+          hostControls.style.display = 'block';
+        }
+
+        passwordScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+        initFirebaseListeners();
+
+        if (isHost) {
           db.ref('players').once('value').then(snapshot => {
-  if (!snapshot.exists()) {
-    const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-    const players = {};
-    for (let i = 0; i < count; i++) {
-      players[`Player ${i + 1}`] = { score: 0 };
-    }
-    db.ref('players').set(players);
-    isHost = true;
-  }
-});
-        } else {
-          authError.textContent = 'Incorrect password';
+            if (!snapshot.exists()) {
+              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+              const players = {};
+              for (let i = 0; i < count; i++) {
+                players[`Player ${i + 1}`] = { score: 0 };
+              }
+              db.ref('players').set(players);
+            }
+          });
         }
       });
 
       playersInput.addEventListener('input', () => {
-  if (!isHost) return; // Only host can update player layout
-  const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-  const players = {};
-  for (let i = 0; i < count; i++) {
-    players[`Player ${i + 1}`] = { score: 0 };
-  }
-  db.ref('players').set(players);
-});
-
-      resetButton.addEventListener('click', () => {
-        resetGame();
+        if (!isHost) return;
+        const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+        const players = {};
+        for (let i = 0; i < count; i++) {
+          players[`Player ${i + 1}`] = { score: 0 };
+        }
+        db.ref('players').set(players);
       });
+
+      resetButton.addEventListener('click', resetGame);
     });
   </script>
 </body>
