@@ -161,7 +161,9 @@
       });
     }
 
-    window.addEventListener('load', () => {
+    let isHost = false;
+
+window.addEventListener('load', () => {
       const passwordInput = document.getElementById('password-input');
       const authButton = document.getElementById('auth-button');
       const passwordScreen = document.getElementById('password-screen');
@@ -182,28 +184,30 @@
           gameScreen.style.display = 'block';
           initFirebaseListeners();
           db.ref('players').once('value').then(snapshot => {
-            if (!snapshot.exists()) {
-              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-              const players = {};
-              for (let i = 0; i < count; i++) {
-                players[`Player ${i + 1}`] = { score: 0 };
-              }
-              db.ref('players').set(players);
-            }
-          });
+  if (!snapshot.exists()) {
+    const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+    const players = {};
+    for (let i = 0; i < count; i++) {
+      players[`Player ${i + 1}`] = { score: 0 };
+    }
+    db.ref('players').set(players);
+    isHost = true;
+  }
+});
         } else {
           authError.textContent = 'Incorrect password';
         }
       });
 
       playersInput.addEventListener('input', () => {
-        const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
-        const players = {};
-        for (let i = 0; i < count; i++) {
-          players[`Player ${i + 1}`] = { score: 0 };
-        }
-        db.ref('players').set(players);
-      });
+  if (!isHost) return; // Only host can update player layout
+  const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+  const players = {};
+  for (let i = 0; i < count; i++) {
+    players[`Player ${i + 1}`] = { score: 0 };
+  }
+  db.ref('players').set(players);
+});
 
       resetButton.addEventListener('click', () => {
         resetGame();
