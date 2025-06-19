@@ -187,6 +187,34 @@
           authError.textContent = 'Please enter a name';
           return;
         }
+
+        if (password === 'quizmaster123') {
+          isHost = true;
+          localStorage.setItem('playerName', 'host');
+        } else {
+          localStorage.setItem('playerName', playerName);
+        }
+
+        if (!isHost) {
+          db.ref(`players/${playerName}`).once('value').then(snapshot => {
+            if (!snapshot.exists()) {
+              authError.textContent = 'Name not found. Ask host to assign it.';
+              return;
+            } else {
+              startGame();
+            }
+          });
+        } else {
+          startGame();
+        }
+      });
+        const playerName = nameInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!playerName) {
+          authError.textContent = 'Please enter a name';
+          return;
+        }
         localStorage.setItem('playerName', playerName);
 
         if (password === 'quizmaster123') {
@@ -223,6 +251,26 @@
       });
 
       resetButton.addEventListener('click', resetGame);
+
+      function startGame() {
+        passwordScreen.style.display = 'none';
+        gameScreen.style.display = 'block';
+        initFirebaseListeners();
+
+        if (isHost) {
+          hostControls.style.display = 'block';
+          db.ref('players').once('value').then(snapshot => {
+            if (!snapshot.exists()) {
+              const count = Math.max(2, Math.min(8, parseInt(playersInput.value)));
+              const players = {};
+              for (let i = 0; i < count; i++) {
+                players[`Player ${i + 1}`] = { score: 0 };
+              }
+              db.ref('players').set(players);
+            }
+          });
+        }
+      }
     });
   </script>
 </body>
