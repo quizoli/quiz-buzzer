@@ -246,47 +246,14 @@
           }
         });
       }
-
-      if (!isAuthenticated) disableGameInterface();
-    }
-
-    let isAuthenticated = false;
-
-    function disableGameInterface() {
-      headerInput.disabled = true;
-      playersInput.disabled = true;
-      resetButton.disabled = true;
-      resetButton.classList.add('disabled');
-      nameInputs.forEach(input => input.disabled = true);
-      scoreInputs.forEach(input => input.disabled = true);
-      buzzers.forEach(btn => {
-        btn.disabled = true;
-        btn.classList.add('disabled');
-      });
-    }
-
-    function enableGameInterface() {
-      headerInput.disabled = false;
-      playersInput.disabled = false;
-      resetButton.disabled = false;
-      resetButton.classList.remove('disabled');
-      nameInputs.forEach(input => input.disabled = false);
-      scoreInputs.forEach(input => input.disabled = false);
-      buzzers.forEach(btn => {
-        btn.disabled = false;
-        btn.classList.remove('disabled');
-      });
-      isBuzzerActive = true;
-      status.textContent = 'Ready';
     }
 
     authButton.addEventListener('click', () => {
       const enteredPassword = passwordInput.value;
       if (enteredPassword === correctPassword) {
-        isAuthenticated = true;
         passwordScreen.style.display = 'none';
         gameScreen.style.display = 'block';
-        enableGameInterface();
+        generateBuzzers(parseInt(playersInput.value));
         authError.textContent = '';
       } else {
         authError.textContent = 'Incorrect password. Try again.';
@@ -294,47 +261,35 @@
       }
     });
 
-    passwordInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') authButton.click();
-    });
-
     headerInput.addEventListener('input', () => {
-      if (isAuthenticated) {
-        const headerText = headerInput.value.trim() || 'BILYONARIO QUIZ B';
-        mainHeader.textContent = headerText;
-        pageTitle.textContent = headerText;
-      }
+      const headerText = headerInput.value.trim() || 'BILYONARIO QUIZ B';
+      mainHeader.textContent = headerText;
+      pageTitle.textContent = headerText;
     });
 
     playersInput.addEventListener('input', () => {
-      if (isAuthenticated) {
-        let numPlayers = parseInt(playersInput.value) || 4;
-        numPlayers = Math.min(Math.max(numPlayers, 2), 8);
-        playersInput.value = numPlayers;
-        generateBuzzers(numPlayers);
-      }
+      let numPlayers = parseInt(playersInput.value) || 4;
+      numPlayers = Math.min(Math.max(numPlayers, 2), 8);
+      playersInput.value = numPlayers;
+      generateBuzzers(numPlayers);
     });
 
     resetButton.addEventListener('click', () => {
-      if (isAuthenticated) {
-        isBuzzerActive = true;
-        status.textContent = 'Ready';
-        playBeep(220, 0.2);
-        buzzers.forEach(btn => {
-          btn.classList.remove('disabled');
-          btn.disabled = false;
-        });
-      }
+      isBuzzerActive = true;
+      status.textContent = 'Ready';
+      playBeep(220, 0.2);
+      buzzers.forEach(btn => {
+        btn.classList.remove('disabled');
+        btn.disabled = false;
+      });
     });
 
     document.addEventListener('keydown', (event) => {
-      if (isAuthenticated) {
-        if (event.key >= '1' && event.key <= '8' && isBuzzerActive) {
-          const index = parseInt(event.key) - 1;
-          if (index < buzzers.length) buzzers[index].click();
-        } else if (event.key.toLowerCase() === 'r') {
-          resetButton.click();
-        }
+      if (event.key >= '1' && event.key <= '8' && isBuzzerActive) {
+        const index = parseInt(event.key) - 1;
+        if (index < buzzers.length) buzzers[index].click();
+      } else if (event.key.toLowerCase() === 'r') {
+        resetButton.click();
       }
     });
 
