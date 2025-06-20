@@ -522,5 +522,66 @@
     }
   });
 </script>
+  // --- Firebase Initialization ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAN7_tf4JxF4rzafGLZidbuUlPSxNPgyvE",
+  authDomain: "oliver-s-quiz-game.firebaseapp.com",
+  databaseURL: "https://oliver-s-quiz-game-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "oliver-s-quiz-game",
+  storageBucket: "oliver-s-quiz-game.appspot.com",
+  messagingSenderId: "273095657187",
+  appId: "1:273095657187:web:4bc4b0f662d3c60afd27d6",
+  measurementId: "G-T13MW2BD3Z"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const settingsRef = db.ref('games/quizGame/settings');
+const buzzRef = db.ref('games/quizGame/buzz');
+const namesRef = db.ref('games/quizGame/names');
+const scoresRef = db.ref('games/quizGame/scores');
+const timerRef = db.ref('games/quizGame/timer');
+const hostPresenceRef = db.ref('games/quizGame/hostPresent');
+
+// ---- DOM variables ----
+const loginScreen = document.getElementById('login-screen');
+const passwordScreen = document.getElementById('password-screen');
+const gameScreen = document.getElementById('game-screen');
+const authButton = document.getElementById('auth-button');
+const passwordInput = document.getElementById('password-input');
+const hostLoginBtn = document.getElementById('host-login-btn');
+const playerLoginBtn = document.getElementById('player-login-btn');
+const playerSetupScreen = document.getElementById('player-setup-screen');
+const playerSlot = document.getElementById('player-slot');
+const playerNameInput = document.getElementById('player-name-input');
+const playerLoginConfirmBtn = document.getElementById('player-login-confirm-btn');
+const playerLoginError = document.getElementById('player-login-error');
+const headerInput = document.getElementById('header-input');
+const mainHeader = document.getElementById('main-header');
+const pageTitle = document.getElementById('page-title');
+const playersInput = document.getElementById('players-input');
+const statusEl = document.getElementById('status');
+const buzzerRow = document.getElementById('buzzer-row');
+const resetButton = document.getElementById('reset');
+const timerInput = document.getElementById('timer-input');
+const timerEl = document.getElementById('timer');
+const startTimerBtn = document.getElementById('start-timer-btn');
+const stopTimerBtn = document.getElementById('stop-timer-btn');
+const resetTimerBtn = document.getElementById('reset-timer-btn');
+const scoreboardBody = document.getElementById('scoreboard-body');
+const downloadBtn = document.getElementById('download-btn');
+const leaveBtn = document.getElementById('leave-btn');
+const timeoutPopup = document.getElementById('timeout-popup');
+const waitingHost = document.getElementById('waiting-host');
+
+// ---- State variables ----
+let isHost = false;
+let playerIndex = null;
+let currentNames = [], currentScores = [];
+let buzzers = [], nameInputs = [], scoreInputs = [];
+let isBuzzerActive = true;
+let timerInterval = null;
+let hostPresent = false;
+const buzzerColors = ['#ff4d4d','#4d79ff','#4dff4d','#ffcc00','#ff33cc','#33cccc','#cc33ff','#ff9933'];
+const buzzerFreqs  = [440,523.25,659.25,880,987.77,1108.73,1318.51,1760];
 </body>
 </html>
