@@ -1,149 +1,186 @@
---- quizbuzzer_two_tone-4.html
-+++ quizbuzzer_two_tone-4.html
-@@ head
--  </style>
--</head>
-+    </style>
-+
-+  <!-- Firebase SDKs -->
-+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-+</head>
-@@ body
--  <script>
-+  <script>
-+    // ─── 1) FIREBASE INITIALIZATION ─────────────────────────────────────────────
-+    const firebaseConfig = {
-+      apiKey: "YOUR_API_KEY",
-+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-+      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
-+      projectId: "YOUR_PROJECT_ID",
-+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-+      messagingSenderId: "SENDER_ID",
-+      appId: "APP_ID"
-+    };
-+    firebase.initializeApp(firebaseConfig);
-+    const db      = firebase.database();
-+    const gameRef = db.ref('games/quizGame');  // all clients read/write here
-+
-+    // ─── 2) LOCAL VARIABLES & UTILS ─────────────────────────────────────────────
-     const AudioContext = window.AudioContext || window.webkitAudioContext;
-     const audioCtx = new AudioContext();
-     function playBeep(frequency1, duration) { /* …same as before… */ }
-@@
--    const correctPassword = 'quizmaster123';
-+    const correctPassword = 'quizmaster123';
-@@
--    let isBuzzerActive = true;
-+    let isBuzzerActive = true;
-     let buzzers = [], nameInputs = [], scoreInputs = [];
-     const status = document.getElementById('status');
-@@
-     function generateBuzzers(numPlayers) {
-       buzzerRow.innerHTML = '';
-@@
-       for (let i = 0; i < numPlayers; i++) {
-         /* …create nameInput, buzzer, scoreInput… */
-         buzzer.addEventListener('click', () => {
--          if (isBuzzerActive) {
--            isBuzzerActive = false;
--            /* local-only buzz logic… */
--          }
-+          // push to Firebase only once
-+          gameRef.child('buzz').once('value').then(snap => {
-+            if (!snap.exists()) {
-+              isBuzzerActive = false;
-+              const playerName = nameInput.value.trim() || `Player ${i+1}`;
-+              gameRef.child('buzz').set({
-+                index: i,
-+                name: playerName,
-+                freq: buzzerFrequencies[i % buzzerFrequencies.length],
-+                ts: Date.now()
-+              });
-+            }
-+          });
-         });
-       }
-     }
-@@
--    authButton.addEventListener('click', () => {
-+    authButton.addEventListener('click', () => {
-       const enteredPassword = passwordInput.value;
-       if (enteredPassword === correctPassword) {
-         passwordScreen.style.display = 'none';
-         gameScreen.style.display = 'block';
--        generateBuzzers(parseInt(playersInput.value));
-+        const n = parseInt(playersInput.value);
-+        generateBuzzers(n);
-+        // host writes settings once
-+        gameRef.child('settings').set({
-+          header: headerInput.value.trim(),
-+          numPlayers: n
-+        });
-         authError.textContent = '';
-       } else {
-         authError.textContent = 'Incorrect password. Try again.';
-@@
--    resetButton.addEventListener('click', () => {
--      isBuzzerActive = true;
--      status.textContent = 'Ready';
--      playBeep(220, 0.2);
--      buzzers.forEach(btn => {
--        btn.classList.remove('disabled');
--        btn.disabled = false;
--      });
--    });
-+    resetButton.addEventListener('click', () => {
-+      // wiping the buzz node resets everyone
-+      gameRef.child('buzz').remove();
-+      playBeep(220, 0.2);
-+    });
-+
-+    // ─── 3) REAL-TIME LISTENERS ────────────────────────────────────────────────
-+    // 3a) Update UI when host changes title or player count
-+    gameRef.child('settings').on('value', snap => {
-+      const s = snap.val();
-+      if (s) {
-+        mainHeader.textContent = s.header;
-+        pageTitle.textContent = s.header;
-+        if (parseInt(playersInput.value) !== s.numPlayers) {
-+          playersInput.value = s.numPlayers;
-+          generateBuzzers(s.numPlayers);
-+        }
-+      }
-+    });
-+
-+    // 3b) React to the first buzz (or reset)
-+    gameRef.child('buzz').on('value', snap => {
-+      const b = snap.val();
-+      if (b) {
-+        isBuzzerActive = false;
-+        status.textContent = `${b.name} buzzed first!`;
-+        playBeep(b.freq, 0.3);
-+        buzzers.forEach(btn => btn.disabled = true);
-+        buzzers[b.index].disabled = false;
-+      } else {
-+        isBuzzerActive = true;
-+        status.textContent = 'Ready';
-+        buzzers.forEach(btn => {
-+          btn.classList.remove('disabled');
-+          btn.disabled = false;
-+        });
-+      }
-+    });
-+
--    document.addEventListener('keydown', (event) => { /* … */ });
--    generateBuzzers(parseInt(playersInput.value) || 4);
-+    document.addEventListener('keydown', (event) => {
-+      if (event.key >= '1' && event.key <= '8' && isBuzzerActive) {
-+        const idx = parseInt(event.key)-1;
-+        if (idx < buzzers.length) buzzers[idx].click();
-+      } else if (event.key.toLowerCase() === 'r') {
-+        resetButton.click();
-+      }
-+    });
-+
-+    // kick things off (clients will get settings via the listener)
-+    // the host’s own settings write will populate it
-+    generateBuzzers(parseInt(playersInput.value) || 4);
-   </script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="page-title">BILYONARIO QUIZ B</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; margin: 0; padding: 20px; }
+    .container { max-width: 1200px; margin: auto; }
+    .buzzer-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    .buzzer-container { margin: 10px; text-align: center; }
+    .buzzer { width: 100px; height: 100px; border: none; border-radius: 50%; font-size: 16px; cursor: pointer; transition: transform 0.1s ease; }
+    .buzzer:active { transform: scale(0.95); }
+    .disabled { background-color: #ccc !important; cursor: not-allowed; }
+    .name-input, .header-input, .players-input, .password-input { padding: 8px; font-size: 16px; width: 150px; }
+    .score-input { padding: 8px; font-size: 16px; width: 60px; margin-left: 5px; }
+    .header-container, .players-container, .password-container { margin-bottom: 20px; }
+    #password-screen { display: block; margin-top: 50px; }
+    #game-screen { display: none; }
+  </style>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+  <div id="password-screen" class="container">
+    <h1>Authenticate</h1>
+    <div class="password-container">
+      <label>Enter Password:</label>
+      <input type="password" id="password-input" class="password-input">
+      <button id="auth-button" class="auth-button">Submit</button>
+    </div>
+    <div id="auth-error" style="color: red; margin-top: 10px;"></div>
+  </div>
+
+  <div id="game-screen" class="container">
+    <div class="header-container">
+      <label>Quiz Title:</label>
+      <input type="text" id="header-input" class="header-input" value="BILYONARIO QUIZ B">
+    </div>
+    <h1 id="main-header">BILYONARIO QUIZ B</h1>
+
+    <div class="players-container">
+      <label>Number of Players (2-8):</label>
+      <input type="number" id="players-input" class="players-input" value="4" min="2" max="8">
+    </div>
+
+    <div id="status">Ready</div>
+    <div id="buzzer-row" class="buzzer-row"></div>
+    <button id="reset" style="margin-top:20px;">Reset</button>
+  </div>
+
+  <script>
+    // === Firebase Initialization (Your Real Config) ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyAN7_tf4JxF4rzafGLZidbuUlPSxNPgyvE",
+      authDomain: "oliver-s-quiz-game.firebaseapp.com",
+      databaseURL: "https://oliver-s-quiz-game-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "oliver-s-quiz-game",
+      storageBucket: "oliver-s-quiz-game.firebasestorage.app",
+      messagingSenderId: "273095657187",
+      appId: "1:273095657187:web:4bc4b0f662d3c60afd27d6",
+      measurementId: "G-T13MW2BD3Z"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db          = firebase.database();
+    const settingsRef = db.ref('games/quizGame/settings');
+    const buzzRef     = db.ref('games/quizGame/buzz');
+
+    // === DOM References ===
+    const passwordScreen = document.getElementById('password-screen');
+    const gameScreen     = document.getElementById('game-screen');
+    const passwordInput  = document.getElementById('password-input');
+    const authButton     = document.getElementById('auth-button');
+    const playersInput   = document.getElementById('players-input');
+    const headerInput    = document.getElementById('header-input');
+    const mainHeader     = document.getElementById('main-header');
+    const pageTitle      = document.getElementById('page-title');
+    const statusEl       = document.getElementById('status');
+    const buzzerRow      = document.getElementById('buzzer-row');
+    const resetButton    = document.getElementById('reset');
+
+    // === Audio Setup ===
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx     = new AudioContext();
+    function playBeep(frequency, duration) {
+      const gap = 0.05;
+      const now = audioCtx.currentTime;
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1); gain1.connect(audioCtx.destination);
+      osc1.type = 'sine'; osc1.frequency.setValueAtTime(frequency, now);
+      gain1.gain.setValueAtTime(0.5, now);
+      osc1.start(now); osc1.stop(now + duration);
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2); gain2.connect(audioCtx.destination);
+      osc2.type = 'sine'; osc2.frequency.setValueAtTime(frequency * 1.25, now + duration + gap);
+      gain2.gain.setValueAtTime(0.5, now + duration + gap);
+      osc2.start(now + duration + gap); osc2.stop(now + 2*duration + gap);
+    }
+
+    // === Buzzer State ===
+    let isBuzzerActive = true;
+    let buzzers = [], nameInputs = [];
+    const buzzerColors = ['#ff4d4d','#4d79ff','#4dff4d','#ffcc00','#ff33cc','#33cccc','#cc33ff','#ff9933'];
+    const buzzerFreqs  = [440,523.25,659.25,880,987.77,1108.73,1318.51,1760];
+
+    // === Generate Buzzers ===
+    function generateBuzzers(count) {
+      buzzerRow.innerHTML = '';
+      buzzers = [];
+      nameInputs = [];
+      for (let i = 0; i < count; i++) {
+        const container = document.createElement('div'); container.className = 'buzzer-container';
+        const input = document.createElement('input');
+        input.type = 'text'; input.placeholder = `Player ${i+1} Name`;
+        input.className = 'name-input'; container.appendChild(input);
+        const btn = document.createElement('button');
+        btn.textContent = `Player ${i+1}`;
+        btn.className = 'buzzer'; btn.style.backgroundColor = buzzerColors[i];
+        btn.disabled = !isBuzzerActive;
+        btn.addEventListener('click', () => {
+          buzzRef.once('value').then(snap => {
+            if (!snap.exists()) {
+              const name = input.value.trim() || `Player ${i+1}`;
+              buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
+            }
+          });
+        });
+        container.appendChild(btn);
+        buzzerRow.appendChild(container);
+        buzzers.push(btn);
+        nameInputs.push(input);
+      }
+    }
+
+    // === Event Handlers ===
+    authButton.addEventListener('click', () => {
+      if (passwordInput.value === 'quizmaster123') {
+        passwordScreen.style.display = 'none'; gameScreen.style.display = 'block';
+        const n = parseInt(playersInput.value);
+        settingsRef.set({ header: headerInput.value.trim(), numPlayers: n });
+        buzzRef.remove();
+      } else {
+        document.getElementById('auth-error').textContent = 'Incorrect password.';
+      }
+    });
+    resetButton.addEventListener('click', () => { buzzRef.remove(); playBeep(220,0.2); });
+    document.addEventListener('keydown', e => {
+      if (e.key >= '1' && e.key <= '8') buzzers[parseInt(e.key)-1]?.click();
+      if (e.key.toLowerCase()==='r') resetButton.click();
+    });
+
+    // === Real-time Listeners ===
+    settingsRef.on('value', snap => {
+      const s = snap.val(); if (!s) return;
+      headerInput.value = s.header;
+      mainHeader.textContent = s.header;
+      pageTitle.textContent  = s.header;
+      if (parseInt(playersInput.value) !== s.numPlayers) {
+        playersInput.value = s.numPlayers;
+        generateBuzzers(s.numPlayers);
+      }
+    });
+    buzzRef.on('value', snap => {
+      const b = snap.val();
+      if (b) {
+        isBuzzerActive = false;
+        statusEl.textContent = `${b.name} buzzed first!`;
+        playBeep(b.freq,0.3);
+        buzzers.forEach(btn => btn.disabled = true);
+        buzzers[b.index].disabled = false;
+      } else {
+        isBuzzerActive = true;
+        statusEl.textContent = 'Ready';
+        buzzers.forEach(btn => btn.disabled = false);
+      }
+    });
+
+    // === Initial Launch ===
+    generateBuzzers(parseInt(playersInput.value) || 4);
+  </script>
+</body>
+</html>
