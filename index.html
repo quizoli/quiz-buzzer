@@ -12,12 +12,12 @@
     .buzzer { width: 100px; height: 100px; border: none; border-radius: 50%; font-size: 16px; cursor: pointer; transition: transform 0.1s ease; }
     .buzzer:active { transform: scale(0.95); }
     .disabled { background-color: #ccc !important; cursor: not-allowed; }
-    .name-input, .header-input, .players-input, .password-input { padding: 8px; font-size: 16px; width: 150px; }
+    .name-input, .header-input, .players-input, .password-input, .slot-select { padding: 8px; font-size: 16px; width: 150px; }
     .score-input { padding: 8px; font-size: 16px; width: 60px; margin: 0 5px; }
     .score-btn { padding: 5px 12px; margin: 0 2px; font-size: 18px; border-radius: 10px; border: none; }
-    .header-container, .players-container, .password-container { margin-bottom: 20px; }
-    #password-screen { display: block; margin-top: 50px; }
-    #game-screen { display: none; }
+    .header-container, .players-container, .password-container, .login-container { margin-bottom: 20px; }
+    #login-screen { display: block; margin-top: 50px; }
+    #password-screen, #game-screen { display: none; }
     #timer-container { margin-top: 15px; margin-bottom: 15px; }
     #timer { font-size: 2em; padding: 10px; margin-right: 20px;}
     #timer-controls button { padding: 8px 18px; margin: 0 5px; font-size: 1em; border-radius: 8px; border: none;}
@@ -28,16 +28,43 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
+  <div id="login-screen" class="container">
+    <h1>Oliver's Quiz Game</h1>
+    <div class="login-container">
+      <button id="host-login-btn">Login as Host</button>
+      <button id="player-login-btn">Login as Player</button>
+    </div>
+  </div>
   <div id="password-screen" class="container">
-    <h1>Authenticate</h1>
+    <h2>Host Authentication</h2>
     <div class="password-container">
-      <label>Enter Password:</label>
+      <label>Password:</label>
       <input type="password" id="password-input" class="password-input">
-      <button id="auth-button" class="auth-button">Submit</button>
+      <button id="auth-button" class="auth-button">Login</button>
     </div>
     <div id="auth-error" style="color: red; margin-top: 10px;"></div>
   </div>
-
+  <div id="player-setup-screen" class="container" style="display:none;">
+    <h2>Player Login</h2>
+    <div class="login-container">
+      <label>Choose Player Slot:</label>
+      <select id="player-slot" class="slot-select">
+        <option value="0">Player 1</option>
+        <option value="1">Player 2</option>
+        <option value="2">Player 3</option>
+        <option value="3">Player 4</option>
+        <option value="4">Player 5</option>
+        <option value="5">Player 6</option>
+        <option value="6">Player 7</option>
+        <option value="7">Player 8</option>
+      </select>
+      <br/><br/>
+      <label>Your Name:</label>
+      <input type="text" id="player-name-input" class="name-input">
+      <button id="player-login-confirm-btn">Login</button>
+    </div>
+    <div id="player-login-error" style="color: red; margin-top: 10px;"></div>
+  </div>
   <div id="game-screen" class="container">
     <div class="header-container">
       <label>Quiz Title:</label>
@@ -52,9 +79,9 @@
       <input type="number" id="timer-input" min="1" value="30" /> seconds
       <span id="timer">00:30.0</span>
       <span id="timer-controls">
-        <button onclick="startTimer()">Start</button>
-        <button onclick="stopTimer()">Stop</button>
-        <button onclick="resetTimer()">Reset</button>
+        <button id="start-timer-btn">Start</button>
+        <button id="stop-timer-btn">Stop</button>
+        <button id="reset-timer-btn">Reset</button>
       </span>
     </div>
     <div id="status">Ready</div>
@@ -62,7 +89,7 @@
     <button id="reset" style="margin-top:20px;">Reset</button>
   </div>
   <script>
-    // === Firebase Initialization (Your Real Config) ===
+    // --- Firebase ---
     const firebaseConfig = {
       apiKey: "AIzaSyAN7_tf4JxF4rzafGLZidbuUlPSxNPgyvE",
       authDomain: "oliver-s-quiz-game.firebaseapp.com",
@@ -74,29 +101,216 @@
       measurementId: "G-T13MW2BD3Z"
     };
     firebase.initializeApp(firebaseConfig);
-    const db          = firebase.database();
+    const db = firebase.database();
     const settingsRef = db.ref('games/quizGame/settings');
-    const buzzRef     = db.ref('games/quizGame/buzz');
+    const buzzRef = db.ref('games/quizGame/buzz');
+    const namesRef = db.ref('games/quizGame/names');
+    const scoresRef = db.ref('games/quizGame/scores');
+    const timerRef = db.ref('games/quizGame/timer');
 
-    // === DOM References ===
+    // --- DOM ---
+    const loginScreen = document.getElementById('login-screen');
     const passwordScreen = document.getElementById('password-screen');
-    const gameScreen     = document.getElementById('game-screen');
-    const passwordInput  = document.getElementById('password-input');
-    const authButton     = document.getElementById('auth-button');
-    const playersInput   = document.getElementById('players-input');
-    const headerInput    = document.getElementById('header-input');
-    const mainHeader     = document.getElementById('main-header');
-    const pageTitle      = document.getElementById('page-title');
-    const statusEl       = document.getElementById('status');
-    const buzzerRow      = document.getElementById('buzzer-row');
-    const resetButton    = document.getElementById('reset');
-    const timerInput     = document.getElementById('timer-input');
-    const timerEl        = document.getElementById('timer');
+    const gameScreen = document.getElementById('game-screen');
+    const authButton = document.getElementById('auth-button');
+    const passwordInput = document.getElementById('password-input');
+    const hostLoginBtn = document.getElementById('host-login-btn');
+    const playerLoginBtn = document.getElementById('player-login-btn');
+    const playerSetupScreen = document.getElementById('player-setup-screen');
+    const playerSlot = document.getElementById('player-slot');
+    const playerNameInput = document.getElementById('player-name-input');
+    const playerLoginConfirmBtn = document.getElementById('player-login-confirm-btn');
+    const playerLoginError = document.getElementById('player-login-error');
+    const headerInput = document.getElementById('header-input');
+    const mainHeader = document.getElementById('main-header');
+    const pageTitle = document.getElementById('page-title');
+    const playersInput = document.getElementById('players-input');
+    const statusEl = document.getElementById('status');
+    const buzzerRow = document.getElementById('buzzer-row');
+    const resetButton = document.getElementById('reset');
+    const timerInput = document.getElementById('timer-input');
+    const timerEl = document.getElementById('timer');
+    const startTimerBtn = document.getElementById('start-timer-btn');
+    const stopTimerBtn = document.getElementById('stop-timer-btn');
+    const resetTimerBtn = document.getElementById('reset-timer-btn');
 
-    // === Audio Setup ===
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx     = new AudioContext();
+    // --- App State ---
+    let isHost = false;
+    let playerIndex = null;
+    let currentNames = [], currentScores = [];
+    let buzzers = [], nameInputs = [], scoreInputs = [];
+    let isBuzzerActive = true;
+    let timerInterval = null, timerSyncRunning = false, timerSyncEnd = 0;
+    const buzzerColors = ['#ff4d4d','#4d79ff','#4dff4d','#ffcc00','#ff33cc','#33cccc','#cc33ff','#ff9933'];
+    const buzzerFreqs  = [440,523.25,659.25,880,987.77,1108.73,1318.51,1760];
+
+    // --- Login Logic ---
+    hostLoginBtn.onclick = () => {
+      loginScreen.style.display = 'none';
+      passwordScreen.style.display = 'block';
+    };
+    playerLoginBtn.onclick = () => {
+      loginScreen.style.display = 'none';
+      playerSetupScreen.style.display = 'block';
+    };
+    authButton.onclick = () => {
+      if (passwordInput.value === 'quizmaster123') {
+        isHost = true;
+        passwordScreen.style.display = 'none';
+        launchGame();
+      } else {
+        document.getElementById('auth-error').textContent = 'Incorrect password!';
+      }
+    };
+    playerLoginConfirmBtn.onclick = () => {
+      let idx = Number(playerSlot.value);
+      let name = playerNameInput.value.trim();
+      if (!name) {
+        playerLoginError.textContent = "Enter your name!";
+        return;
+      }
+      // Check if that slot is taken (name set by host)
+      namesRef.once('value').then(snap => {
+        let arr = snap.exists() ? snap.val() : [];
+        if (arr[idx] && arr[idx] !== name) {
+          playerLoginError.textContent = "Host assigned this slot to another name.";
+          return;
+        }
+        playerIndex = idx;
+        // Update name for this slot in Firebase
+        arr[idx] = name;
+        namesRef.set(arr);
+        playerSetupScreen.style.display = 'none';
+        launchGame();
+      });
+    };
+
+    // --- Main Game UI & Sync Logic ---
+    function launchGame() {
+      gameScreen.style.display = 'block';
+      // Host sets default names/scores/timer
+      if (isHost) {
+        playersInput.disabled = false;
+        headerInput.disabled = false;
+        timerInput.disabled = false;
+        startTimerBtn.disabled = false;
+        stopTimerBtn.disabled = false;
+        resetTimerBtn.disabled = false;
+        resetButton.disabled = false;
+      } else {
+        playersInput.disabled = true;
+        headerInput.disabled = true;
+        timerInput.disabled = true;
+        startTimerBtn.disabled = true;
+        stopTimerBtn.disabled = true;
+        resetTimerBtn.disabled = true;
+        resetButton.disabled = true;
+      }
+      // Pull current data and render buzzers
+      Promise.all([
+        settingsRef.once('value'),
+        namesRef.once('value'),
+        scoresRef.once('value'),
+        timerRef.once('value')
+      ]).then(([snapSet, snapN, snapS, snapT]) => {
+        let nPlayers = snapSet.exists() && snapSet.val().numPlayers ? snapSet.val().numPlayers : 4;
+        let header = snapSet.exists() && snapSet.val().header ? snapSet.val().header : "Oliver's Quiz Game";
+        let arrN = snapN.exists() ? snapN.val() : Array(nPlayers).fill('');
+        let arrS = snapS.exists() ? snapS.val() : Array(nPlayers).fill(0);
+        currentNames = arrN;
+        currentScores = arrS;
+        playersInput.value = nPlayers;
+        headerInput.value = header;
+        mainHeader.textContent = header;
+        pageTitle.textContent = header;
+        generateBuzzers(nPlayers, arrN, arrS);
+        if (snapT.exists()) timerEl.textContent = formatTime(snapT.val().timeLeft || snapT.val().base || 30);
+      });
+    }
+
+    function generateBuzzers(count, namesArray = [], scoresArray = []) {
+      buzzerRow.innerHTML = '';
+      buzzers = []; nameInputs = []; scoreInputs = [];
+      for (let i = 0; i < count; i++) {
+        const container = document.createElement('div'); container.className = 'buzzer-container';
+        // Name
+        const input = document.createElement('input');
+        input.type = 'text'; input.placeholder = `Player ${i+1} Name`;
+        input.className = 'name-input';
+        input.value = namesArray[i] || '';
+        if (!isHost) input.disabled = true;
+        input.addEventListener('change', () => {
+          if (isHost) {
+            currentNames[i] = input.value;
+            namesRef.set(currentNames);
+          }
+        });
+        container.appendChild(input);
+        // Buzzer
+        const btn = document.createElement('button');
+        btn.textContent = `Player ${i+1}`;
+        btn.className = 'buzzer'; btn.style.backgroundColor = buzzerColors[i];
+        btn.disabled = !isBuzzerActive || (!isHost && playerIndex !== i);
+        btn.addEventListener('click', () => {
+          if (isHost || playerIndex === i) {
+            buzzRef.once('value').then(snap => {
+              if (!snap.exists()) {
+                const name = input.value.trim() || `Player ${i+1}`;
+                buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
+              }
+            });
+          }
+        });
+        container.appendChild(btn);
+        // Score
+        const minusBtn = document.createElement('button');
+        minusBtn.textContent = '-';
+        minusBtn.className = 'score-btn';
+        const score = document.createElement('input');
+        score.type = 'number';
+        score.value = scoresArray[i] || 0;
+        score.className = 'score-input';
+        score.disabled = !isHost;
+        const plusBtn = document.createElement('button');
+        plusBtn.textContent = '+';
+        plusBtn.className = 'score-btn';
+        minusBtn.disabled = plusBtn.disabled = !isHost;
+        minusBtn.onclick = () => {
+          if (isHost) {
+            currentScores[i] = Math.max(0, Number(score.value) - 1000);
+            scoresRef.set(currentScores);
+          }
+        };
+        plusBtn.onclick = () => {
+          if (isHost) {
+            currentScores[i] = Number(score.value) + 1000;
+            scoresRef.set(currentScores);
+          }
+        };
+        score.addEventListener('change', () => {
+          if (isHost) {
+            currentScores[i] = Number(score.value) || 0;
+            scoresRef.set(currentScores);
+          }
+        });
+        container.appendChild(minusBtn);
+        container.appendChild(score);
+        container.appendChild(plusBtn);
+        buzzerRow.appendChild(container);
+        buzzers.push(btn);
+        nameInputs.push(input);
+        scoreInputs.push(score);
+      }
+    }
+
+    // Timer Sync
+    function formatTime(t) {
+      const min = Math.floor(t/60), sec = Math.floor(t%60), dsec = Math.floor((t*10)%10);
+      return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${dsec}`;
+    }
     function playBeep(frequency, duration) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx     = new AudioContext();
       const gap = 0.05;
       const now = audioCtx.currentTime;
       const osc1 = audioCtx.createOscillator();
@@ -113,7 +327,6 @@
       osc2.start(now + duration + gap); osc2.stop(now + 2*duration + gap);
     }
     function playAlarm() {
-      // Simple alarm: three quick high beeps
       let i = 0;
       function beep() {
         playBeep(1760, 0.2);
@@ -122,168 +335,30 @@
       }
       beep();
     }
-
-    // === Buzzer State ===
-    let isBuzzerActive = true;
-    let buzzers = [], nameInputs = [], scoreInputs = [];
-    const buzzerColors = ['#ff4d4d','#4d79ff','#4dff4d','#ffcc00','#ff33cc','#33cccc','#cc33ff','#ff9933'];
-    const buzzerFreqs  = [440,523.25,659.25,880,987.77,1108.73,1318.51,1760];
-
-    function generateBuzzers(count) {
-      buzzerRow.innerHTML = '';
-      buzzers = [];
-      nameInputs = [];
-      scoreInputs = [];
-      for (let i = 0; i < count; i++) {
-        const container = document.createElement('div'); container.className = 'buzzer-container';
-        const input = document.createElement('input');
-        input.type = 'text'; input.placeholder = `Player ${i+1} Name`;
-        input.className = 'name-input'; container.appendChild(input);
-        const btn = document.createElement('button');
-        btn.textContent = `Player ${i+1}`;
-        btn.className = 'buzzer'; btn.style.backgroundColor = buzzerColors[i];
-        btn.disabled = !isBuzzerActive;
-        btn.addEventListener('click', () => {
-          buzzRef.once('value').then(snap => {
-            if (!snap.exists()) {
-              const name = input.value.trim() || `Player ${i+1}`;
-              buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
-            }
-          });
+    let localTimerInterval = null;
+    startTimerBtn.onclick = function() {
+      if (isHost) {
+        let t = Number(timerInput.value) || 30;
+        timerRef.set({
+          running: true,
+          base: t,
+          start: Date.now(),
+          timeLeft: t
         });
-        container.appendChild(btn);
-
-        // Score controls
-        const minusBtn = document.createElement('button');
-        minusBtn.textContent = '-';
-        minusBtn.className = 'score-btn';
-        const score = document.createElement('input');
-        score.type = 'number';
-        score.value = 0;
-        score.className = 'score-input';
-        const plusBtn = document.createElement('button');
-        plusBtn.textContent = '+';
-        plusBtn.className = 'score-btn';
-        minusBtn.onclick = () => score.value = Math.max(0, Number(score.value) - 1000);
-        plusBtn.onclick = () => score.value = Number(score.value) + 1000;
-        container.appendChild(minusBtn);
-        container.appendChild(score);
-        container.appendChild(plusBtn);
-
-        buzzerRow.appendChild(container);
-        buzzers.push(btn);
-        nameInputs.push(input);
-        scoreInputs.push(score);
       }
-    }
-
-    // === Countdown Timer ===
-    let timerInterval = null, timeLeft = 30, timerRunning = false;
-
-    function updateTimerDisplayCountdown() {
-      const min = Math.floor(timeLeft/60), sec = Math.floor(timeLeft%60), dsec = Math.floor((timeLeft*10)%10);
-      timerEl.textContent = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${dsec}`;
-    }
-    function startTimer() {
-      if (!timerRunning) {
-        timerRunning = true;
-        if (timeLeft <= 0) {
-          timeLeft = Number(timerInput.value) || 30;
-        }
-        timerInterval = setInterval(() => {
-          timeLeft -= 0.1;
-          if (timeLeft <= 0) {
-            timeLeft = 0;
-            updateTimerDisplayCountdown();
-            stopTimer();
-            playAlarm();
-          } else {
-            updateTimerDisplayCountdown();
-          }
-        }, 100);
+    };
+    stopTimerBtn.onclick = function() {
+      if (isHost) timerRef.child("running").set(false);
+    };
+    resetTimerBtn.onclick = function() {
+      if (isHost) {
+        let t = Number(timerInput.value) || 30;
+        timerRef.set({
+          running: false,
+          base: t,
+          start: Date.now(),
+          timeLeft: t
+        });
       }
-    }
-    function stopTimer() {
-      if (timerRunning) {
-        timerRunning = false;
-        clearInterval(timerInterval);
-        updateTimerDisplayCountdown();
-      }
-    }
-    function resetTimer() {
-      timerRunning = false;
-      clearInterval(timerInterval);
-      timeLeft = Number(timerInput.value) || 30;
-      updateTimerDisplayCountdown();
-    }
-    timerInput.addEventListener('change', () => {
-      resetTimer();
-    });
-    // Timer controls globally accessible
-    window.startTimer = startTimer;
-    window.stopTimer = stopTimer;
-    window.resetTimer = resetTimer;
-    resetTimer();
-
-    // === Event Handlers ===
-    authButton.addEventListener('click', () => {
-      if (passwordInput.value === 'quizmaster123') {
-        passwordScreen.style.display = 'none'; gameScreen.style.display = 'block';
-        let n = Math.max(2, Math.min(8, parseInt(playersInput.value) || 4));
-        settingsRef.set({ header: headerInput.value.trim(), numPlayers: n });
-        generateBuzzers(n); // <-- ensure local update for host
-        buzzRef.remove();
-      } else {
-        document.getElementById('auth-error').textContent = 'Incorrect password.';
-      }
-    });
-    resetButton.addEventListener('click', () => { buzzRef.remove(); playBeep(220,0.2); });
-
-    // Update buzzers when players selection changes (immediate for all, including host)
-    playersInput.addEventListener('input', () => {
-      let n = Math.max(2, Math.min(8, parseInt(playersInput.value) || 4));
-      settingsRef.set({ header: headerInput.value.trim(), numPlayers: n });
-      generateBuzzers(n);
-      buzzRef.remove();
-    });
-
-    headerInput.addEventListener('change', () => {
-      settingsRef.set({ header: headerInput.value.trim(), numPlayers: parseInt(playersInput.value) });
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key >= '1' && e.key <= '8') buzzers[parseInt(e.key)-1]?.click();
-      if (e.key.toLowerCase()==='r') resetButton.click();
-    });
-
-    // === Real-time Listeners ===
-    settingsRef.on('value', snap => {
-      const s = snap.val(); if (!s) return;
-      headerInput.value = s.header;
-      mainHeader.textContent = s.header;
-      pageTitle.textContent  = s.header;
-      if (parseInt(playersInput.value) !== s.numPlayers) {
-        playersInput.value = s.numPlayers;
-        generateBuzzers(s.numPlayers);
-      }
-    });
-    buzzRef.on('value', snap => {
-      const b = snap.val();
-      if (b) {
-        isBuzzerActive = false;
-        statusEl.textContent = `${b.name} buzzed first!`;
-        playBeep(b.freq,0.3);
-        buzzers.forEach(btn => btn.disabled = true);
-        buzzers[b.index].disabled = false;
-      } else {
-        isBuzzerActive = true;
-        statusEl.textContent = 'Ready';
-        buzzers.forEach(btn => btn.disabled = false);
-      }
-    });
-
-    // === Initial Launch ===
-    generateBuzzers(parseInt(playersInput.value) || 4);
-  </script>
-</body>
-</html>
+    };
+    timerInput.addEventListener('change', function() {
