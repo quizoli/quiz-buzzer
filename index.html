@@ -1,3 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="page-title">Oliver's Quiz Game</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; margin: 0; padding: 20px; }
+    .container { max-width: 1200px; margin: auto; }
+    .buzzer-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    .buzzer-container { margin: 10px; text-align: center; }
+    .buzzer { width: 100px; height: 100px; border: none; border-radius: 50%; font-size: 16px; cursor: pointer; transition: transform 0.1s ease; }
+    .buzzer:active { transform: scale(0.95); }
+    .disabled { background-color: #ccc !important; cursor: not-allowed; }
+    .name-input, .header-input, .players-input, .password-input, .slot-select { padding: 8px; font-size: 16px; width: 150px; }
+    .score-input { padding: 8px; font-size: 16px; width: 60px; margin: 0 5px; }
+    .score-btn { padding: 5px 12px; margin: 0 2px; font-size: 18px; border-radius: 10px; border: none; }
+    .header-container, .players-container, .password-container, .login-container { margin-bottom: 20px; }
+    #login-screen { display: block; margin-top: 50px; }
+    #password-screen, #game-screen { display: none; }
+    #timer-container { margin-top: 15px; margin-bottom: 15px; }
+    #timer { font-size: 2em; padding: 10px; margin-right: 20px;}
+    #timer-controls button { padding: 8px 18px; margin: 0 5px; font-size: 1em; border-radius: 8px; border: none;}
+    #timer-input { width: 70px; font-size: 1.2em; margin-right: 12px; }
+    #scoreboard { background: #fff; border-radius: 15px; box-shadow: 0 0 8px #ccc; margin: 30px auto 10px auto; max-width: 600px; padding: 16px 10px 10px 10px; }
+    #scoreboard h2 { margin-top: 0; font-size: 1.5em; }
+    #scoreboard-table { width: 100%; font-size: 1.3em; border-collapse: collapse; margin-bottom: 0; }
+    #scoreboard-table th, #scoreboard-table td { border-bottom: 1px solid #eee; padding: 6px 8px; }
+    #timeout-popup {
+      display:none; position: fixed; left:0; top:0; width:100vw; height:100vh; background: rgba(0,0,0,0.6);
+      z-index: 20; justify-content: center; align-items: center;
+    }
+    #timeout-popup-inner {
+      background: #fff;
+      padding: 40px 40px;
+      border-radius: 20px;
+      box-shadow: 0 0 16px #444;
+      font-size: 2.2em;
+      color: #c00;
+      animation: flashbg 0.3s linear 0s 6 alternate;
+    }
+    @keyframes flashbg {
+      from { background: #fff; }
+      to { background: #ffcccc; }
+    }
+    #leave-btn { position: fixed; top: 18px; right: 25px; padding: 8px 20px; font-size: 1em; background: #fff8f0; border-radius: 9px; border:1px solid #fa8072; color: #d94d3a; cursor: pointer; z-index:10;}
+    #download-btn { margin-left: 14px; padding: 8px 16px; border-radius: 8px; border: 1px solid #007bff; color: #007bff; background: #f6faff; font-size: 1em;}
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+  <div id="login-screen" class="container">
+    <h1>Oliver's Quiz Game</h1>
+    <div class="login-container">
+      <button id="host-login-btn">Login as Host</button>
+      <button id="player-login-btn">Login as Player</button>
+    </div>
+    <div id="waiting-host" style="color:#e0671b; margin-top:30px; font-size:1.4em; display:none;">
+      Waiting for host to start the game...
+    </div>
+  </div>
+  <div id="password-screen" class="container">
+    <h2>Host Authentication</h2>
+    <div class="password-container">
+      <label>Password:</label>
+      <input type="password" id="password-input" class="password-input">
+      <button id="auth-button" class="auth-button">Login</button>
+    </div>
+    <div id="auth-error" style="color: red; margin-top: 10px;"></div>
+  </div>
+  <div id="player-setup-screen" class="container" style="display:none;">
+    <h2>Player Login</h2>
+    <div class="login-container">
+      <label>Choose Player Slot:</label>
+      <select id="player-slot" class="slot-select">
+        <option value="0">Player 1</option>
+        <option value="1">Player 2</option>
+        <option value="2">Player 3</option>
+        <option value="3">Player 4</option>
+        <option value="4">Player 5</option>
+        <option value="5">Player 6</option>
+        <option value="6">Player 7</option>
+        <option value="7">Player 8</option>
+      </select>
+      <br/><br/>
+      <label>Your Name:</label>
+      <input type="text" id="player-name-input" class="name-input">
+      <button id="player-login-confirm-btn">Login</button>
+    </div>
+    <div id="player-login-error" style="color: red; margin-top: 10px;"></div>
+  </div>
+  <button id="leave-btn" style="display:none;">Leave Game</button>
+  <div id="timeout-popup"><div id="timeout-popup-inner">TIME'S UP!</div></div>
+  <div id="game-screen" class="container">
+    <div class="header-container">
+      <label>Quiz Title:</label>
+      <input type="text" id="header-input" class="header-input" value="Oliver's Quiz Game">
+    </div>
+    <h1 id="main-header">Oliver's Quiz Game</h1>
+    <div class="players-container">
+      <label>Number of Players (2-8):</label>
+      <input type="number" id="players-input" class="players-input" value="4" min="2" max="8">
+    </div>
+    <div id="timer-container">
+      <input type="number" id="timer-input" min="1" value="30" /> seconds
+      <span id="timer">00:30.0</span>
+      <span id="timer-controls">
+        <button id="start-timer-btn">Start</button>
+        <button id="stop-timer-btn">Stop</button>
+        <button id="reset-timer-btn">Reset</button>
+      </span>
+    </div>
+    <div id="scoreboard">
+      <h2>Scoreboard</h2>
+      <table id="scoreboard-table">
+        <thead><tr><th>Player</th><th>Name</th><th>Score</th></tr></thead>
+        <tbody id="scoreboard-body"></tbody>
+      </table>
+      <button id="download-btn">Download Scores (CSV)</button>
+    </div>
+    <div id="status">Ready</div>
+    <div id="buzzer-row" class="buzzer-row"></div>
+    <button id="reset" style="margin-top:20px;">Reset</button>
+  </div>
+<script>
   // Firebase config is already set above.
   // ...all DOM selections and variables above...
 
