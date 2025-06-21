@@ -17,11 +17,20 @@
     .score-btn { padding: 5px 12px; margin: 0 2px; font-size: 18px; border-radius: 10px; border: none; }
     .header-container, .players-container, .password-container, .login-container { margin-bottom: 20px; }
     #login-screen { display: block; margin-top: 50px; }
-    #password-screen, #game-screen { display: none; }
+    #password-screen, #game-screen, #player-setup-screen { display: none; }
     #timer-container { margin-top: 15px; margin-bottom: 15px; }
-    #timer { font-size: 2em; padding: 10px; margin-right: 20px;}
-    #timer-controls button { padding: 8px 18px; margin: 0 5px; font-size: 1em; border-radius: 8px; border: none;}
+    #timer { font-size: 2em; padding: 10px; margin-right: 20px; }
+    #timer-controls button { padding: 8px 18px; margin: 0 5px; font-size: 1em; border-radius: 8px; border: none; }
     #timer-input { width: 70px; font-size: 1.2em; margin-right: 12px; }
+    #scoreboard { background: #fff; border-radius: 15px; box-shadow: 0 0 8px #ccc; margin: 30px auto 10px auto; max-width: 600px; padding: 16px 10px 10px 10px; }
+    #scoreboard h2 { margin-top: 0; font-size: 1.5em; }
+    #scoreboard-table { width: 100%; font-size: 1.3em; border-collapse: collapse; margin-bottom: 0; }
+    #scoreboard-table th, #scoreboard-table td { border-bottom: 1px solid #eee; padding: 6px 8px; }
+    #timeout-popup { display:none; position: fixed; left:0; top:0; width:100vw; height:100vh; background: rgba(0,0,0,0.6); z-index: 20; justify-content: center; align-items: center; }
+    #timeout-popup-inner { background: #fff; padding: 40px 40px; border-radius: 20px; box-shadow: 0 0 16px #444; font-size: 2.2em; color: #c00; animation: flashbg 0.3s linear 0s 6 alternate; }
+    @keyframes flashbg { from { background: #fff; } to { background: #ffcccc; } }
+    #leave-btn { position: fixed; top: 18px; right: 25px; padding: 8px 20px; font-size: 1em; background: #fff8f0; border-radius: 9px; border:1px solid #fa8072; color: #d94d3a; cursor: pointer; z-index:10; }
+    #download-btn { margin-left: 14px; padding: 8px 16px; border-radius: 8px; border: 1px solid #007bff; color: #007bff; background: #f6faff; font-size: 1em; }
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -32,6 +41,9 @@
     <div class="login-container">
       <button id="host-login-btn">Login as Host</button>
       <button id="player-login-btn">Login as Player</button>
+    </div>
+    <div id="waiting-host" style="color:#e0671b; margin-top:30px; font-size:1.4em; display:none;">
+      Waiting for host to start the game...
     </div>
   </div>
   <div id="password-screen" class="container">
@@ -64,6 +76,8 @@
     </div>
     <div id="player-login-error" style="color: red; margin-top: 10px;"></div>
   </div>
+  <button id="leave-btn" style="display:none;">Leave Game</button>
+  <div id="timeout-popup"><div id="timeout-popup-inner">TIME'S UP!</div></div>
   <div id="game-screen" class="container">
     <div class="header-container">
       <label>Quiz Title:</label>
@@ -83,399 +97,473 @@
         <button id="reset-timer-btn">Reset</button>
       </span>
     </div>
+    <div id="scoreboard">
+      <h2>Scoreboard</h2>
+      <table id="scoreboard-table">
+        <thead><tr><th>Player</th><th>Name</th><th>Score</th></tr></thead>
+        <tbody id="scoreboard-body"></tbody>
+      </table>
+      <button id="download-btn">Download Scores (CSV)</button>
+    </div>
     <div id="status">Ready</div>
     <div id="buzzer-row" class="buzzer-row"></div>
     <button id="reset" style="margin-top:20px;">Reset</button>
   </div>
-  <script>
-    // Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyAN7_tf4JxF4rzafGLZidbuUlPSxNPgyvE",
-      authDomain: "oliver-s-quiz-game.firebaseapp.com",
-      databaseURL: "https://oliver-s-quiz-game-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "oliver-s-quiz-game",
-      storageBucket: "oliver-s-quiz-game.firebasestorage.app",
-      messagingSenderId: "273095657187",
-      appId: "1:273095657187:web:4bc4b0f662d3c60afd27d6",
-      measurementId: "G-T13MW2BD3Z"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const settingsRef = db.ref('games/quizGame/settings');
-    const buzzRef = db.ref('games/quizGame/buzz');
-    const namesRef = db.ref('games/quizGame/names');
-    const scoresRef = db.ref('games/quizGame/scores');
-    const timerRef = db.ref('games/quizGame/timer');
+<script>
+document.addEventListener('DOMContentLoaded', function() {
 
-    // DOM
-    const loginScreen = document.getElementById('login-screen');
-    const passwordScreen = document.getElementById('password-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const authButton = document.getElementById('auth-button');
-    const passwordInput = document.getElementById('password-input');
-    const hostLoginBtn = document.getElementById('host-login-btn');
-    const playerLoginBtn = document.getElementById('player-login-btn');
-    const playerSetupScreen = document.getElementById('player-setup-screen');
-    const playerSlot = document.getElementById('player-slot');
-    const playerNameInput = document.getElementById('player-name-input');
-    const playerLoginConfirmBtn = document.getElementById('player-login-confirm-btn');
-    const playerLoginError = document.getElementById('player-login-error');
-    const headerInput = document.getElementById('header-input');
-    const mainHeader = document.getElementById('main-header');
-    const pageTitle = document.getElementById('page-title');
-    const playersInput = document.getElementById('players-input');
-    const statusEl = document.getElementById('status');
-    const buzzerRow = document.getElementById('buzzer-row');
-    const resetButton = document.getElementById('reset');
-    const timerInput = document.getElementById('timer-input');
-    const timerEl = document.getElementById('timer');
-    const startTimerBtn = document.getElementById('start-timer-btn');
-    const stopTimerBtn = document.getElementById('stop-timer-btn');
-    const resetTimerBtn = document.getElementById('reset-timer-btn');
+  // --- 1. Firebase Configuration ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyAN7_tf4JxF4rzafGLZidbuUlPSxNPgyvE",
+    authDomain: "oliver-s-quiz-game.firebaseapp.com",
+    databaseURL: "https://oliver-s-quiz-game-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "oliver-s-quiz-game",
+    storageBucket: "oliver-s-quiz-game.appspot.com",
+    messagingSenderId: "273095657187",
+    appId: "1:273095657187:web:4bc4b0f662d3c60afd27d6",
+    measurementId: "G-T13MW2BD3Z"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-    // State
-    let isHost = false;
-    let playerIndex = null;
-    let currentNames = [], currentScores = [];
-    let buzzers = [], nameInputs = [], scoreInputs = [];
-    let isBuzzerActive = true;
-    let timerInterval = null;
-    const buzzerColors = ['#ff4d4d','#4d79ff','#4dff4d','#ffcc00','#ff33cc','#33cccc','#cc33ff','#ff9933'];
-    const buzzerFreqs  = [440,523.25,659.25,880,987.77,1108.73,1318.51,1760];
+  // --- 2. Firebase References ---
+  const settingsRef = db.ref('games/quizGame/settings');
+  const buzzRef = db.ref('games/quizGame/buzz');
+  const namesRef = db.ref('games/quizGame/names');
+  const scoresRef = db.ref('games/quizGame/scores');
+  const timerRef = db.ref('games/quizGame/timer');
+  const hostPresenceRef = db.ref('games/quizGame/hostPresent');
 
-    // Login Logic
-    hostLoginBtn.onclick = () => {
-      loginScreen.style.display = 'none';
-      passwordScreen.style.display = 'block';
-      passwordInput.value = '';
-      document.getElementById('auth-error').textContent = '';
-      passwordInput.focus();
-    };
-    function doHostLogin() {
-      if (passwordInput.value === 'quizmaster123') {
-        isHost = true;
-        passwordScreen.style.display = 'none';
-        launchGame();
-      } else {
-        document.getElementById('auth-error').textContent = 'Incorrect password!';
-        passwordInput.value = '';
-        passwordInput.focus();
-      }
+  // --- 3. DOM Elements ---
+  const loginScreen = document.getElementById('login-screen');
+  const passwordScreen = document.getElementById('password-screen');
+  const playerSetupScreen = document.getElementById('player-setup-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const hostLoginBtn = document.getElementById('host-login-btn');
+  const playerLoginBtn = document.getElementById('player-login-btn');
+  const authButton = document.getElementById('auth-button');
+  const leaveBtn = document.getElementById('leave-btn');
+  const timerEl = document.getElementById('timer');
+  const passwordInput = document.getElementById('password-input');
+  const playerSlot = document.getElementById('player-slot');
+  const playerNameInput = document.getElementById('player-name-input');
+  const playerLoginError = document.getElementById('player-login-error');
+  const scoreboardBody = document.getElementById('scoreboard-body');
+  const downloadBtn = document.getElementById('download-btn');
+  const resetButton = document.getElementById('reset');
+  const headerInput = document.getElementById('header-input');
+  const mainHeader = document.getElementById('main-header');
+  const pageTitle = document.getElementById('page-title');
+  const playersInput = document.getElementById('players-input');
+  const timerInput = document.getElementById('timer-input');
+  const startTimerBtn = document.getElementById('start-timer-btn');
+  const stopTimerBtn = document.getElementById('stop-timer-btn');
+  const resetTimerBtn = document.getElementById('reset-timer-btn');
+  const buzzerRow = document.getElementById('buzzer-row');
+  const timeoutPopup = document.getElementById('timeout-popup');
+  const waitingHost = document.getElementById('waiting-host');
+  const statusEl = document.getElementById('status');
+
+  // --- 4. State ---
+  let isHost = false;
+  let playerIndex = null;
+  let currentNames = [];
+  let currentScores = [];
+  let buzzers = [];
+  let nameInputs = [];
+  let scoreInputs = [];
+  let isBuzzerActive = true;
+  let timerInterval;
+  const buzzerColors = ['#ff4d4d','#4d79ff','#4dff4d','#ffcc00','#ff33cc','#33cccc','#cc33ff','#ff9933'];
+  const buzzerFreqs = [440,523.25,659.25,880,987.77,1108.73,1318.51,1760];
+
+  // --- 5. Utility Functions ---
+  function formatTime(t) {
+    const min = Math.floor(t/60), sec = Math.floor(t%60), dsec = Math.floor((t*10)%10);
+    return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${dsec}`;
+  }
+  function playBeep(frequency, duration) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx     = new AudioContext();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'sine'; osc.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.5, now);
+    osc.start(now); osc.stop(now + duration);
+  }
+  function playAlarm() {
+    let i = 0;
+    function beep() {
+      playBeep(1760, 0.2);
+      i++;
+      if (i < 3) setTimeout(beep, 300);
     }
-    authButton.onclick = doHostLogin;
-    passwordInput.addEventListener('keydown', function(e) {
-      if (e.key === "Enter") doHostLogin();
-    });
+    beep();
+    timeoutPopup.style.display = "flex";
+    setTimeout(() => { timeoutPopup.style.display = "none"; }, 4000);
+  }
 
-    playerLoginBtn.onclick = () => {
+    // --- 6. Game Lock Until Host Logs In ---
+  function showWaitingForHost() {
+    loginScreen.style.display = 'block';
+    waitingHost.style.display = 'block';
+    document.querySelector('.login-container').style.display = 'none';
+  }
+  function hideWaitingForHost() {
+    waitingHost.style.display = 'none';
+    document.querySelector('.login-container').style.display = 'block';
+  }
+  hostPresenceRef.on('value', snap => {
+    let hostPresent = snap.val() === true;
+    if (!hostPresent) showWaitingForHost();
+    else hideWaitingForHost();
+  });
+
+  // --- 7. Host Login Logic ---
+  hostLoginBtn.onclick = () => {
+    loginScreen.style.display = 'none';
+    passwordScreen.style.display = 'block';
+    passwordInput.value = '';
+    document.getElementById('auth-error').textContent = '';
+    passwordInput.focus();
+  };
+  function doHostLogin() {
+    if (passwordInput.value === 'quizmaster123') {
+      isHost = true;
+      passwordScreen.style.display = 'none';
+      hostPresenceRef.set(true);
+      window.addEventListener('beforeunload', () => hostPresenceRef.set(false));
+      leaveBtn.style.display = 'block';
+      launchGame();
+    } else {
+      document.getElementById('auth-error').textContent = 'Incorrect password!';
+      passwordInput.value = '';
+      passwordInput.focus();
+    }
+  }
+  authButton.onclick = doHostLogin;
+  passwordInput.addEventListener('keydown', function(e) {
+    if (e.key === "Enter") doHostLogin();
+  });
+
+  // --- 8. Player Login Logic ---
+  playerLoginBtn.onclick = () => {
+    hostPresenceRef.once('value').then(snap => {
+      if (!snap.val()) {
+        alert("Please wait for the host to join before logging in.");
+        return;
+      }
       loginScreen.style.display = 'none';
       playerSetupScreen.style.display = 'block';
       playerLoginError.textContent = '';
       playerNameInput.value = '';
       playerNameInput.focus();
-    };
-    function doPlayerLogin() {
-      let idx = Number(playerSlot.value);
-      let name = playerNameInput.value.trim();
-      if (!name) {
-        playerLoginError.textContent = "Enter your name!";
+    });
+  };
+  function doPlayerLogin() {
+    let idx = Number(playerSlot.value);
+    let name = playerNameInput.value.trim();
+    if (!name) {
+      playerLoginError.textContent = "Enter your name!";
+      playerNameInput.focus();
+      return;
+    }
+    namesRef.once('value').then(snap => {
+      let arr = snap.exists() ? snap.val() : [];
+      if (arr[idx] && arr[idx] !== name) {
+        playerLoginError.textContent = "Host assigned this slot to another name.";
         playerNameInput.focus();
         return;
       }
+      playerIndex = idx;
+      arr[idx] = name;
+      namesRef.set(arr);
+      playerSetupScreen.style.display = 'none';
+      leaveBtn.style.display = 'block';
+      launchGame();
+    });
+  }
+  document.getElementById('player-login-confirm-btn').onclick = doPlayerLogin;
+  playerNameInput.addEventListener('keydown', function(e) {
+    if (e.key === "Enter") doPlayerLogin();
+  });
+
+  // --- 9. Leave Game Logic ---
+  leaveBtn.onclick = function() {
+    if (isHost) {
+      hostPresenceRef.set(false);
+      window.location.reload();
+    } else if (playerIndex !== null) {
       namesRef.once('value').then(snap => {
         let arr = snap.exists() ? snap.val() : [];
-        if (arr[idx] && arr[idx] !== name) {
-          playerLoginError.textContent = "Host assigned this slot to another name.";
-          playerNameInput.focus();
-          return;
-        }
-        playerIndex = idx;
-        arr[idx] = name;
+        arr[playerIndex] = '';
         namesRef.set(arr);
-        playerSetupScreen.style.display = 'none';
-        launchGame();
+        window.location.reload();
       });
+    } else {
+      window.location.reload();
     }
-    playerLoginConfirmBtn.onclick = doPlayerLogin;
-    playerNameInput.addEventListener('keydown', function(e) {
-      if (e.key === "Enter") doPlayerLogin();
-    });
+  };
 
-    // Main Game UI
-    function launchGame() {
-      gameScreen.style.display = 'block';
-      if (isHost) {
-        playersInput.disabled = false;
-        headerInput.disabled = false;
-        timerInput.disabled = false;
-        startTimerBtn.disabled = false;
-        stopTimerBtn.disabled = false;
-        resetTimerBtn.disabled = false;
-        resetButton.disabled = false;
-      } else {
-        playersInput.disabled = true;
-        headerInput.disabled = true;
-        timerInput.disabled = true;
-        startTimerBtn.disabled = true;
-        stopTimerBtn.disabled = true;
-        resetTimerBtn.disabled = true;
-        resetButton.disabled = true;
-      }
+  // --- 10. Main Game UI & Sync Logic ---
+  function launchGame() {
+    gameScreen.style.display = 'block';
+    if (isHost) {
+      playersInput.disabled = false;
+      headerInput.disabled = false;
+      timerInput.disabled = false;
+      startTimerBtn.disabled = false;
+      stopTimerBtn.disabled = false;
+      resetTimerBtn.disabled = false;
+      resetButton.disabled = false;
+    } else {
+      playersInput.disabled = true;
+      headerInput.disabled = true;
+      timerInput.disabled = true;
+      startTimerBtn.disabled = true;
+      stopTimerBtn.disabled = true;
+      resetTimerBtn.disabled = true;
+      resetButton.disabled = true;
     }
+  }
 
-    function generateBuzzers(count, namesArray = [], scoresArray = []) {
-      buzzerRow.innerHTML = '';
-      buzzers = []; nameInputs = []; scoreInputs = [];
-      for (let i = 0; i < count; i++) {
-        const container = document.createElement('div'); container.className = 'buzzer-container';
-        // Name
-        const input = document.createElement('input');
-        input.type = 'text'; input.placeholder = `Player ${i+1} Name`;
-        input.className = 'name-input';
-        input.value = namesArray[i] || '';
-        if (!isHost) input.disabled = true;
-        input.addEventListener('change', () => {
-          if (isHost) {
-            currentNames[i] = input.value;
-            namesRef.set(currentNames);
-          }
-        });
-        container.appendChild(input);
-        // Buzzer
-        const btn = document.createElement('button');
-        btn.textContent = `Player ${i+1}`;
-        btn.className = 'buzzer'; btn.style.backgroundColor = buzzerColors[i];
-        btn.disabled = !isBuzzerActive || (!isHost && playerIndex !== i);
-        btn.addEventListener('click', () => {
-          if (isHost || playerIndex === i) {
-            buzzRef.once('value').then(snap => {
-              if (!snap.exists()) {
-                const name = input.value.trim() || `Player ${i+1}`;
-                buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
-              }
-            });
-          }
-        });
-        container.appendChild(btn);
-        // Score
-        const minusBtn = document.createElement('button');
-        minusBtn.textContent = '-';
-        minusBtn.className = 'score-btn';
-        const score = document.createElement('input');
-        score.type = 'number';
-        score.value = scoresArray[i] || 0;
-        score.className = 'score-input';
-        score.disabled = !isHost;
-        const plusBtn = document.createElement('button');
-        plusBtn.textContent = '+';
-        plusBtn.className = 'score-btn';
-        minusBtn.disabled = plusBtn.disabled = !isHost;
-        minusBtn.onclick = () => {
-          if (isHost) {
-            currentScores[i] = Math.max(0, Number(score.value) - 1000);
-            scoresRef.set(currentScores);
-          }
-        };
-        plusBtn.onclick = () => {
-          if (isHost) {
-            currentScores[i] = Number(score.value) + 1000;
-            scoresRef.set(currentScores);
-          }
-        };
-        score.addEventListener('change', () => {
-          if (isHost) {
-            currentScores[i] = Number(score.value) || 0;
-            scoresRef.set(currentScores);
-          }
-        });
-        container.appendChild(minusBtn);
-        container.appendChild(score);
-        container.appendChild(plusBtn);
-        buzzerRow.appendChild(container);
-        buzzers.push(btn);
-        nameInputs.push(input);
-        scoreInputs.push(score);
-      }
-    }
-
-    // Timer and Firebase listeners
-    function formatTime(t) {
-      const min = Math.floor(t/60), sec = Math.floor(t%60), dsec = Math.floor((t*10)%10);
-      return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${dsec}`;
-    }
-    function playBeep(frequency, duration) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      const audioCtx     = new AudioContext();
-      const gap = 0.05;
-      const now = audioCtx.currentTime;
-      const osc1 = audioCtx.createOscillator();
-      const gain1 = audioCtx.createGain();
-      osc1.connect(gain1); gain1.connect(audioCtx.destination);
-      osc1.type = 'sine'; osc1.frequency.setValueAtTime(frequency, now);
-      gain1.gain.setValueAtTime(0.5, now);
-      osc1.start(now); osc1.stop(now + duration);
-      const osc2 = audioCtx.createOscillator();
-      const gain2 = audioCtx.createGain();
-      osc2.connect(gain2); gain2.connect(audioCtx.destination);
-      osc2.type = 'sine'; osc2.frequency.setValueAtTime(frequency * 1.25, now + duration + gap);
-      gain2.gain.setValueAtTime(0.5, now + duration + gap);
-      osc2.start(now + duration + gap); osc2.stop(now + 2*duration + gap);
-    }
-    function playAlarm() {
-      let i = 0;
-      function beep() {
-        playBeep(1760, 0.2);
-        i++;
-        if (i < 3) setTimeout(beep, 300);
-      }
-      beep();
-    }
-
-    // --- Host-only controls ---
-    playersInput.onchange = function() {
-      if (isHost) {
-        let n = Math.max(2, Math.min(8, parseInt(playersInput.value) || 4));
-        settingsRef.set({ header: headerInput.value.trim(), numPlayers: n });
-        let arrN = Array.from({length: n}, (_,i) => currentNames && currentNames[i] ? currentNames[i] : '');
-        let arrS = Array.from({length: n}, (_,i) => currentScores && currentScores[i] ? currentScores[i] : 0);
-        namesRef.set(arrN);
-        scoresRef.set(arrS);
-        buzzRef.remove();
-      }
-    };
-    headerInput.onchange = function() {
-      if (isHost)
-        settingsRef.set({ header: headerInput.value.trim(), numPlayers: parseInt(playersInput.value) });
-    };
-    timerInput.onchange = function() {
-      if (isHost) {
-        let t = Number(timerInput.value) || 30;
-        timerRef.set({
-          running: false,
-          base: t,
-          start: Date.now(),
-          timeLeft: t
-        });
-      }
-    };
-    startTimerBtn.onclick = function() {
-      if (isHost) {
-        let t = Number(timerInput.value) || 30;
-        timerRef.set({
-          running: true,
-          base: t,
-          start: Date.now(),
-          timeLeft: t
-        });
-      }
-    };
-    stopTimerBtn.onclick = function() {
-      if (isHost) timerRef.child("running").set(false);
-    };
-    resetTimerBtn.onclick = function() {
-      if (isHost) {
-        let t = Number(timerInput.value) || 30;
-        timerRef.set({
-          running: false,
-          base: t,
-          start: Date.now(),
-          timeLeft: t
-        });
-      }
-    };
-    resetButton.onclick = function() {
-      if (isHost) buzzRef.remove();
-    };
-
-    // --- Real-time listeners (Firebase) ---
-    settingsRef.on('value', snap => {
-      const s = snap.val(); if (!s) return;
-      headerInput.value = s.header;
-      mainHeader.textContent = s.header;
-      pageTitle.textContent  = s.header;
-      if (parseInt(playersInput.value) !== s.numPlayers) {
-        playersInput.value = s.numPlayers;
-      }
-      // Generate buzzers if needed
-      namesRef.once('value').then(snapN => {
-        let arrN = snapN.exists() ? snapN.val() : [];
-        scoresRef.once('value').then(snapS => {
-          let arrS = snapS.exists() ? snapS.val() : [];
-          currentNames = arrN;
-          currentScores = arrS;
-          generateBuzzers(s.numPlayers, arrN, arrS);
-        });
-      });
-    });
-    namesRef.on('value', snap => {
-      let arr = snap.exists() ? snap.val() : [];
-      currentNames = arr;
-      // Update only the name fields
-      for (let i = 0; i < nameInputs.length; i++)
-        if (arr[i] !== undefined) nameInputs[i].value = arr[i];
-    });
-    scoresRef.on('value', snap => {
-      let arr = snap.exists() ? snap.val() : [];
-      currentScores = arr;
-      for (let i = 0; i < scoreInputs.length; i++)
-        if (arr[i] !== undefined) scoreInputs[i].value = arr[i];
-    });
-    buzzRef.on('value', snap => {
-      const b = snap.val();
-      if (b) {
-        isBuzzerActive = false;
-        statusEl.textContent = `${b.name} buzzed first!`;
-        playBeep(b.freq,0.3);
-        for (let i = 0; i < buzzers.length; i++) buzzers[i].disabled = true;
-        if (buzzers[b.index]) buzzers[b.index].disabled = false;
-      } else {
-        isBuzzerActive = true;
-        statusEl.textContent = 'Ready';
-        for (let i = 0; i < buzzers.length; i++)
-          buzzers[i].disabled = (!isHost && playerIndex !== i) ? true : false;
-      }
-    });
-    timerRef.on('value', snap => {
-      const data = snap.val();
-      if (!data) return;
-      if (data.running) {
-        let base = data.base || 30;
-        let start = data.start || Date.now();
-        clearInterval(timerInterval);
-        function update() {
-          let elapsed = (Date.now() - start) / 1000;
-          let left = Math.max(0, base - elapsed);
-          timerEl.textContent = formatTime(left);
-          if (left <= 0) {
-            timerEl.textContent = formatTime(0);
-            clearInterval(timerInterval);
-            playAlarm();
-            timerRef.child('running').set(false);
-          }
+    // --- 11. Generate Buzzers ---
+  function generateBuzzers(count, namesArray = [], scoresArray = []) {
+    buzzerRow.innerHTML = '';
+    buzzers = []; nameInputs = []; scoreInputs = [];
+    for (let i = 0; i < count; i++) {
+      const container = document.createElement('div'); container.className = 'buzzer-container';
+      const input = document.createElement('input');
+      input.type = 'text'; input.placeholder = `Player ${i+1} Name`;
+      input.className = 'name-input';
+      input.value = namesArray[i] || '';
+      if (!isHost) input.disabled = true;
+      input.addEventListener('change', () => {
+        if (isHost) {
+          currentNames[i] = input.value;
+          namesRef.set(currentNames);
         }
-        update();
-        timerInterval = setInterval(update, 100);
-      } else {
-        clearInterval(timerInterval);
-        let t = data.timeLeft !== undefined ? data.timeLeft : data.base || 30;
-        timerEl.textContent = formatTime(t);
-      }
-    });
+      });
+      container.appendChild(input);
+      const btn = document.createElement('button');
+      btn.textContent = `Player ${i+1}`;
+      btn.className = 'buzzer'; btn.style.backgroundColor = buzzerColors[i];
+      btn.disabled = !isBuzzerActive || (!isHost && playerIndex !== i);
+      btn.addEventListener('click', () => {
+        if (isHost || playerIndex === i) {
+          buzzRef.once('value').then(snap => {
+            if (!snap.exists()) {
+              const name = input.value.trim() || `Player ${i+1}`;
+              buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
+            }
+          });
+        }
+      });
+      container.appendChild(btn);
+      const minusBtn = document.createElement('button');
+      minusBtn.textContent = '-'; minusBtn.className = 'score-btn';
+      const score = document.createElement('input');
+      score.type = 'number'; score.value = scoresArray[i] || 0; score.className = 'score-input';
+      score.disabled = !isHost;
+      const plusBtn = document.createElement('button');
+      plusBtn.textContent = '+'; plusBtn.className = 'score-btn';
+      minusBtn.disabled = plusBtn.disabled = !isHost;
+      minusBtn.onclick = () => {
+        if (isHost) {
+          currentScores[i] = Math.max(0, Number(score.value) - 1000);
+          scoresRef.set(currentScores);
+        }
+      };
+      plusBtn.onclick = () => {
+        if (isHost) {
+          currentScores[i] = Number(score.value) + 1000;
+          scoresRef.set(currentScores);
+        }
+      };
+      score.addEventListener('change', () => {
+        if (isHost) {
+          currentScores[i] = Number(score.value) || 0;
+          scoresRef.set(currentScores);
+        }
+      });
+      container.appendChild(minusBtn);
+      container.appendChild(score);
+      container.appendChild(plusBtn);
+      buzzerRow.appendChild(container);
+      buzzers.push(btn);
+      nameInputs.push(input);
+      scoreInputs.push(score);
+    }
+  }
 
-    // On load, set up default
-    settingsRef.once('value').then(snap => {
-      if (!snap.exists()) {
-        settingsRef.set({ header: "Oliver's Quiz Game", numPlayers: 4 });
-        namesRef.set(['','','','']);
-        scoresRef.set([0,0,0,0]);
-        timerRef.set({
-          running: false,
-          base: 30,
-          start: Date.now(),
-          timeLeft: 30
-        });
-      }
+  // --- 12. Scoreboard Live Update + Download ---
+  function updateScoreboard(names, scores) {
+    let html = '';
+    for (let i = 0; i < names.length; i++) {
+      html += `<tr><td>Player ${i+1}</td><td>${names[i] || ''}</td><td>${scores[i] || 0}</td></tr>`;
+    }
+    scoreboardBody.innerHTML = html;
+  }
+  downloadBtn.onclick = function() {
+    let csv = "Player,Name,Score\n";
+    for (let i = 0; i < currentNames.length; i++) {
+      csv += `Player ${i+1},"${(currentNames[i] || '').replace(/"/g,'""')}",${currentScores[i]||0}\n`;
+    }
+    let blob = new Blob([csv], { type: "text/csv" });
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "quiz_scores.csv";
+    a.click();
+  };
+
+  // --- 13. Timer and Firebase listeners ---
+  playersInput.onchange = function() {
+    if (isHost) {
+      let n = Math.max(2, Math.min(8, parseInt(playersInput.value) || 4));
+      settingsRef.set({ header: headerInput.value.trim(), numPlayers: n });
+      let arrN = Array.from({length: n}, (_,i) => currentNames && currentNames[i] ? currentNames[i] : '');
+      let arrS = Array.from({length: n}, (_,i) => currentScores && currentScores[i] ? currentScores[i] : 0);
+      namesRef.set(arrN);
+      scoresRef.set(arrS);
+      buzzRef.remove();
+    }
+  };
+  headerInput.onchange = function() {
+    if (isHost)
+      settingsRef.set({ header: headerInput.value.trim(), numPlayers: parseInt(playersInput.value) });
+  };
+  timerInput.onchange = function() {
+    if (isHost) {
+      let t = Number(timerInput.value) || 30;
+      timerRef.set({
+        running: false,
+        base: t,
+        start: Date.now(),
+        timeLeft: t
+      });
+    }
+  };
+  startTimerBtn.onclick = function() {
+    if (isHost) {
+      let t = Number(timerInput.value) || 30;
+      timerRef.set({
+        running: true,
+        base: t,
+        start: Date.now(),
+        timeLeft: t
+      });
+    }
+  };
+  stopTimerBtn.onclick = function() {
+    if (isHost) timerRef.child("running").set(false);
+  };
+  resetTimerBtn.onclick = function() {
+    if (isHost) {
+      let t = Number(timerInput.value) || 30;
+      timerRef.set({
+        running: false,
+        base: t,
+        start: Date.now(),
+        timeLeft: t
+      });
+    }
+  };
+  resetButton.onclick = function() {
+    if (isHost) buzzRef.remove();
+  };
+
+  // --- 14. Real-time Listeners ---
+  settingsRef.on('value', snap => {
+    const s = snap.val(); if (!s) return;
+    headerInput.value = s.header;
+    mainHeader.textContent = s.header;
+    pageTitle.textContent  = s.header;
+    if (parseInt(playersInput.value) !== s.numPlayers) {
+      playersInput.value = s.numPlayers;
+    }
+    namesRef.once('value').then(snapN => {
+      let arrN = snapN.exists() ? snapN.val() : [];
+      scoresRef.once('value').then(snapS => {
+        let arrS = snapS.exists() ? snapS.val() : [];
+        currentNames = arrN;
+        currentScores = arrS;
+        generateBuzzers(s.numPlayers, arrN, arrS);
+        updateScoreboard(arrN, arrS);
+      });
     });
-  </script>
-</body>
-</html>
+  });
+  namesRef.on('value', snap => {
+    let arr = snap.exists() ? snap.val() : [];
+    currentNames = arr;
+    for (let i = 0; i < nameInputs.length; i++)
+      if (arr[i] !== undefined) nameInputs[i].value = arr[i];
+    updateScoreboard(currentNames, currentScores);
+  });
+  scoresRef.on('value', snap => {
+    let arr = snap.exists() ? snap.val() : [];
+    currentScores = arr;
+    for (let i = 0; i < scoreInputs.length; i++)
+      if (arr[i] !== undefined) scoreInputs[i].value = arr[i];
+    updateScoreboard(currentNames, currentScores);
+  });
+  buzzRef.on('value', snap => {
+    const b = snap.val();
+    if (b) {
+      isBuzzerActive = false;
+      statusEl.textContent = `${b.name} buzzed first!`;
+      playBeep(b.freq,0.3);
+      for (let i = 0; i < buzzers.length; i++) buzzers[i].disabled = true;
+      if (buzzers[b.index]) buzzers[b.index].disabled = false;
+    } else {
+      isBuzzerActive = true;
+      statusEl.textContent = 'Ready';
+      for (let i = 0; i < buzzers.length; i++)
+        buzzers[i].disabled = (!isHost && playerIndex !== i) ? true : false;
+    }
+  });
+  timerRef.on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    if (data.running) {
+      let base = data.base || 30;
+      let start = data.start || Date.now();
+      clearInterval(timerInterval);
+      function update() {
+        let elapsed = (Date.now() - start) / 1000;
+        let left = Math.max(0, base - elapsed);
+        timerEl.textContent = formatTime(left);
+        if (left <= 0) {
+          timerEl.textContent = formatTime(0);
+          clearInterval(timerInterval);
+          playAlarm();
+          timerRef.child('running').set(false);
+        }
+      }
+      update();
+      timerInterval = setInterval(update, 100);
+    } else {
+      clearInterval(timerInterval);
+      let t = data.timeLeft !== undefined ? data.timeLeft : data.base || 30;
+      timerEl.textContent = formatTime(t);
+    }
+  });
+
+  // --- 15. On load, set up default ---
+  settingsRef.once('value').then(snap => {
+    if (!snap.exists()) {
+      settingsRef.set({ header: "Oliver's Quiz Game", numPlayers: 4 });
+      namesRef.set(['','','','']);
+      scoresRef.set([0,0,0,0]);
+      timerRef.set({
+        running: false,
+        base: 30,
+        start: Date.now(),
+        timeLeft: 30
+      });
+    }
+  });
+
+}); // end DOMContentLoaded
+</script>
