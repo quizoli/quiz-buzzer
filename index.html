@@ -209,11 +209,20 @@ document.addEventListener('DOMContentLoaded', function() {
   function showWaitingForHost() {
   loginScreen.style.display = 'block';
   waitingHost.style.display = 'block';
-  document.querySelector('.login-container').style.display = 'block';  // <-- SHOW buttons!
+  // Always show the login-container so both buttons are visible:
+  document.querySelector('.login-container').style.display = 'block';
+  // Enable both buttons:
+  document.getElementById('host-login-btn').style.display = 'inline-block';
+  document.getElementById('player-login-btn').style.display = 'inline-block';
 }
+
 function hideWaitingForHost() {
   waitingHost.style.display = 'none';
-  document.querySelector('.login-container').style.display = 'none';  // <-- HIDE buttons
+  loginScreen.style.display = 'block';
+  // Hide "Login as Host" (so there's only one host), but keep "Login as Player" visible:
+  document.getElementById('host-login-btn').style.display = 'none';
+  document.getElementById('player-login-btn').style.display = 'inline-block';
+  document.querySelector('.login-container').style.display = 'block';
 }
   hostPresenceRef.on('value', snap => {
     let hostPresent = snap.val() === true;
