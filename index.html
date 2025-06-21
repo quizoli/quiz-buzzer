@@ -360,28 +360,44 @@ function hideWaitingForHost() {
 
     // --- 11. Generate Buzzers ---
   function generateBuzzers(count, namesArray = [], scoresArray = []) {
-    buzzerRow.innerHTML = '';
-    buzzers = []; nameInputs = []; scoreInputs = [];
-    for (let i = 0; i < count; i++) {
-      const container = document.createElement('div'); container.className = 'buzzer-container';
-      const input = document.createElement('input');
-      input.type = 'text'; input.placeholder = `Player ${i+1} Name`;
-      input.className = 'name-input';
-      input.value = namesArray[i] || '';
-      if (!isHost) input.disabled = true;
+  buzzerRow.innerHTML = '';
+  buzzers = []; nameInputs = []; scoreInputs = [];
+  for (let i = 0; i < count; i++) {
+    const container = document.createElement('div'); container.className = 'buzzer-container';
+
+    // Name input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = `Player ${i+1} Name`;
+    input.className = 'name-input';
+    input.value = namesArray[i] || '';
+
+    if (isHost) {
+      input.disabled = true; // Host cannot edit player names
+    } else {
+      input.disabled = playerIndex !== i;
+      // Allow player to update their own name
       input.addEventListener('change', () => {
-        if (isHost) {
+        if (playerIndex === i) {
           currentNames[i] = input.value;
           namesRef.set(currentNames);
         }
       });
-      container.appendChild(input);
-      const btn = document.createElement('button');
-      btn.textContent = `Player ${i+1}`;
-      btn.className = 'buzzer'; btn.style.backgroundColor = buzzerColors[i];
-      btn.disabled = !isBuzzerActive || (!isHost && playerIndex !== i);
+    }
+    container.appendChild(input);
+
+    // Buzzer button
+    const btn = document.createElement('button');
+    btn.textContent = `Player ${i+1}`;
+    btn.className = 'buzzer';
+    btn.style.backgroundColor = buzzerColors[i];
+
+    if (isHost) {
+      btn.disabled = true; // Host cannot press any buzzers
+    } else {
+      btn.disabled = !isBuzzerActive || playerIndex !== i;
       btn.addEventListener('click', () => {
-        if (isHost || playerIndex === i) {
+        if (playerIndex === i && isBuzzerActive) {
           buzzRef.once('value').then(snap => {
             if (!snap.exists()) {
               const name = input.value.trim() || `Player ${i+1}`;
@@ -390,42 +406,47 @@ function hideWaitingForHost() {
           });
         }
       });
-      container.appendChild(btn);
-      const minusBtn = document.createElement('button');
-      minusBtn.textContent = '-'; minusBtn.className = 'score-btn';
-      const score = document.createElement('input');
-      score.type = 'number'; score.value = scoresArray[i] || 0; score.className = 'score-input';
-      score.disabled = !isHost;
-      const plusBtn = document.createElement('button');
-      plusBtn.textContent = '+'; plusBtn.className = 'score-btn';
-      minusBtn.disabled = plusBtn.disabled = !isHost;
-      minusBtn.onclick = () => {
-        if (isHost) {
-          currentScores[i] = Math.max(0, Number(score.value) - 1000);
-          scoresRef.set(currentScores);
-        }
-      };
-      plusBtn.onclick = () => {
-        if (isHost) {
-          currentScores[i] = Number(score.value) + 1000;
-          scoresRef.set(currentScores);
-        }
-      };
-      score.addEventListener('change', () => {
-        if (isHost) {
-          currentScores[i] = Number(score.value) || 0;
-          scoresRef.set(currentScores);
-        }
-      });
-      container.appendChild(minusBtn);
-      container.appendChild(score);
-      container.appendChild(plusBtn);
-      buzzerRow.appendChild(container);
-      buzzers.push(btn);
-      nameInputs.push(input);
-      scoreInputs.push(score);
     }
+    container.appendChild(btn);
+
+    // Score controls (host only)
+    const minusBtn = document.createElement('button');
+    minusBtn.textContent = '-'; minusBtn.className = 'score-btn';
+    const score = document.createElement('input');
+    score.type = 'number'; score.value = scoresArray[i] || 0; score.className = 'score-input';
+    const plusBtn = document.createElement('button');
+    plusBtn.textContent = '+'; plusBtn.className = 'score-btn';
+
+    minusBtn.disabled = plusBtn.disabled = score.disabled = !isHost;
+    minusBtn.onclick = () => {
+      if (isHost) {
+        currentScores[i] = Math.max(0, Number(score.value) - 1000);
+        scoresRef.set(currentScores);
+      }
+    };
+    plusBtn.onclick = () => {
+      if (isHost) {
+        currentScores[i] = Number(score.value) + 1000;
+        scoresRef.set(currentScores);
+      }
+    };
+    score.addEventListener('change', () => {
+      if (isHost) {
+        currentScores[i] = Number(score.value) || 0;
+        scoresRef.set(currentScores);
+      }
+    });
+
+    container.appendChild(minusBtn);
+    container.appendChild(score);
+    container.appendChild(plusBtn);
+
+    buzzerRow.appendChild(container);
+    buzzers.push(btn);
+    nameInputs.push(input);
+    scoreInputs.push(score);
   }
+}
 
   // --- 12. Scoreboard Live Update + Download ---
 function updateScoreboard(names, scores) {
