@@ -122,10 +122,26 @@
     <div id="status">Ready</div>
     <div id="buzzer-row" class="buzzer-row"></div>
     <button id="reset" style="margin-top:20px;">Reset</button>
+    <button id="start-new-game-btn" style="margin-top:20px; display:none;">Start New Game</button>
   </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-
+const startNewGameBtn = document.getElementById('start-new-game-btn');
+startNewGameBtn.onclick = function() {
+  if (!isHost) return;
+  let n = Math.max(2, Math.min(8, parseInt(playersInput.value) || 4));
+  let blankNames = Array.from({length: n}, () => '');
+  let zeroScores = Array.from({length: n}, () => 0);
+  namesRef.set(blankNames);
+  scoresRef.set(zeroScores);
+  buzzRef.remove();
+  timerRef.set({
+    running: false,
+    base: Number(timerInput.value) || 30,
+    start: Date.now(),
+    timeLeft: Number(timerInput.value) || 30
+  });
+};
   // --- 1. Firebase Configuration ---
   const firebaseConfig = {
     apiKey: "AIzaSyAN7_tf4JxF4rzafGLZidbuUlPSxNPgyvE",
@@ -334,7 +350,6 @@ function hideWaitingForHost() {
   function launchGame() {
   gameScreen.style.display = 'block';
   if (isHost) {
-    // Host can manage settings, but NOT play.
     playersInput.disabled = false;
     headerInput.disabled = false;
     timerInput.disabled = false;
@@ -342,10 +357,8 @@ function hideWaitingForHost() {
     stopTimerBtn.disabled = false;
     resetTimerBtn.disabled = false;
     resetButton.disabled = false;
-    // Hide the buzzers for host!
-    buzzerRow.style.display = "none";
+    document.getElementById('start-new-game-btn').style.display = 'inline-block'; // <--- add this
   } else {
-    // Player cannot change settings, only see their buzzer
     playersInput.disabled = true;
     headerInput.disabled = true;
     timerInput.disabled = true;
@@ -353,8 +366,7 @@ function hideWaitingForHost() {
     stopTimerBtn.disabled = true;
     resetTimerBtn.disabled = true;
     resetButton.disabled = true;
-    // Show buzzer for this player only
-    buzzerRow.style.display = "flex";
+    document.getElementById('start-new-game-btn').style.display = 'none'; // <--- add this
   }
 }
 
