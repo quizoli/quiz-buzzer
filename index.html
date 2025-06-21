@@ -207,14 +207,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 6. Game Lock Until Host Logs In ---
   function showWaitingForHost() {
-    loginScreen.style.display = 'block';
-    waitingHost.style.display = 'block';
-    document.querySelector('.login-container').style.display = 'none';
-  }
-  function hideWaitingForHost() {
-    waitingHost.style.display = 'none';
-    document.querySelector('.login-container').style.display = 'block';
-  }
+  loginScreen.style.display = 'block';
+  waitingHost.style.display = 'block';
+  document.querySelector('.login-container').style.display = 'block';  // <-- SHOW buttons!
+}
+function hideWaitingForHost() {
+  waitingHost.style.display = 'none';
+  document.querySelector('.login-container').style.display = 'none';  // <-- HIDE buttons
+}
   hostPresenceRef.on('value', snap => {
     let hostPresent = snap.val() === true;
     if (!hostPresent) showWaitingForHost();
