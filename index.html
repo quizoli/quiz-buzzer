@@ -332,25 +332,31 @@ function hideWaitingForHost() {
 
   // --- 10. Main Game UI & Sync Logic ---
   function launchGame() {
-    gameScreen.style.display = 'block';
-    if (isHost) {
-      playersInput.disabled = false;
-      headerInput.disabled = false;
-      timerInput.disabled = false;
-      startTimerBtn.disabled = false;
-      stopTimerBtn.disabled = false;
-      resetTimerBtn.disabled = false;
-      resetButton.disabled = false;
-    } else {
-      playersInput.disabled = true;
-      headerInput.disabled = true;
-      timerInput.disabled = true;
-      startTimerBtn.disabled = true;
-      stopTimerBtn.disabled = true;
-      resetTimerBtn.disabled = true;
-      resetButton.disabled = true;
-    }
+  gameScreen.style.display = 'block';
+  if (isHost) {
+    // Host can manage settings, but NOT play.
+    playersInput.disabled = false;
+    headerInput.disabled = false;
+    timerInput.disabled = false;
+    startTimerBtn.disabled = false;
+    stopTimerBtn.disabled = false;
+    resetTimerBtn.disabled = false;
+    resetButton.disabled = false;
+    // Hide the buzzers for host!
+    buzzerRow.style.display = "none";
+  } else {
+    // Player cannot change settings, only see their buzzer
+    playersInput.disabled = true;
+    headerInput.disabled = true;
+    timerInput.disabled = true;
+    startTimerBtn.disabled = true;
+    stopTimerBtn.disabled = true;
+    resetTimerBtn.disabled = true;
+    resetButton.disabled = true;
+    // Show buzzer for this player only
+    buzzerRow.style.display = "flex";
   }
+}
 
     // --- 11. Generate Buzzers ---
   function generateBuzzers(count, namesArray = [], scoresArray = []) {
