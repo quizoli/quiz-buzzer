@@ -408,27 +408,26 @@ function hideWaitingForHost() {
   }
 
   // --- 12. Scoreboard Live Update + Download ---
- function updateScoreboard(names, scores) {
+function updateScoreboard(names, scores) {
   let html = '';
-  // Only up to the number of players
   let n = parseInt(playersInput.value) || 4;
   for (let i = 0; i < n; i++) {
     html += `<tr><td>Player ${i+1}</td><td>${names[i] || ''}</td><td>${scores[i] || 0}</td></tr>`;
   }
   scoreboardBody.innerHTML = html;
 }
-  
-  downloadBtn.onclick = function() {
-    let csv = "Player,Name,Score\n";
-    for (let i = 0; i < currentNames.length; i++) {
-      csv += `Player ${i+1},"${(currentNames[i] || '').replace(/"/g,'""')}",${currentScores[i]||0}\n`;
-    }
-    let blob = new Blob([csv], { type: "text/csv" });
-    let a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "quiz_scores.csv";
-    a.click();
-  };
+
+downloadBtn.onclick = function() {
+  let csv = "Player,Name,Score\n";
+  for (let i = 0; i < currentNames.length; i++) {
+    csv += `Player ${i+1},"${(currentNames[i] || '').replace(/"/g,'""')}",${currentScores[i]||0}\n`;
+  }
+  let blob = new Blob([csv], { type: "text/csv" });
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "quiz_scores.csv";
+  a.click();
+};
 
   // --- 13. Timer and Firebase listeners ---
  playersInput.onchange = function() {
