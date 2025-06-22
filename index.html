@@ -427,28 +427,68 @@ function hideWaitingForHost() {
     // --- 11. Generate Buzzers ---
  function generateBuzzers(count, namesArray = [], scoresArray = []) {
   buzzerRow.innerHTML = '';
-  buzzers = []; scoreInputs = [];
+  buzzers = []; nameInputs = []; scoreInputs = [];
   for (let i = 0; i < count; i++) {
-    const container = document.createElement('div');
-    container.className = 'buzzer-container';
+    const container = document.createElement('div'); container.className = 'buzzer-container';
 
-    // Buzzer button ONLY, with player name or 'P1'
+    // Name input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = `Player ${i+1} Name`;
+    input.className = 'name-input';
+    input.value = namesArray[i] || '';
+
+    if (isHost) {
+      input.disabled = true; // Host cannot edit player names
+    } else {
+      input.disabled = playerIndex !== i;
+      // Allow player to update their own name
+      input.addEventListener('change', () => {
+        if (playerIndex === i) {
+          currentNames[i] = input.value;
+          namesRef.set(currentNames);
+        }
+      });
+    }
+    container.appendChild(input);
+
+    // Buzzer button
     const btn = document.createElement('button');
+    btn.textContent = `Player ${i+1}`;
     btn.className = 'buzzer';
     btn.style.backgroundColor = buzzerColors[i];
-    btn.textContent = (namesArray[i] && namesArray[i].trim()) ? namesArray[i] : `P${i+1}`;
-    btn.disabled = isHost || !isBuzzerActive || playerIndex !== i;
-    btn.addEventListener('click', () => {
-      if (playerIndex === i && isBuzzerActive) {
-        buzzRef.once('value').then(snap => {
-          if (!snap.exists()) {
-            const name = btn.textContent;
-            buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
-          }
-        });
-      }
-    });
+
+    if (isHost) {
+      btn.disabled = true; // Host cannot press any buzzers
+    } else {
+      btn.disabled = !isBuzzerActive || playerIndex !== i;
+      btn.addEventListener('click', () => {
+        if (playerIndex === i && isBuzzerActive) {
+          buzzRef.once('value').then(snap => {
+            if (!snap.exists()) {
+              const name = input.value.trim() || `Player ${i+1}`;
+              buzzRef.set({ index: i, name, freq: buzzerFreqs[i], ts: Date.now() });
+            }
+          });
+        }
+      });
+    }
     container.appendChild(btn);
+
+    // (The rest for scores...)
+
+    // Score controls
+    // ... minus/plus/score logic ...
+    // (leave that part, or keep using your code)
+    // ...
+
+    buzzerRow.appendChild(container);
+    buzzers.push(btn);
+    nameInputs.push(input); // <== Remove this line in the replacement!
+    scoreInputs.push(score);
+  }
+}
+
 
     // Score controls
     const minusBtn = document.createElement('button');
