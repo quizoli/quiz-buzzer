@@ -40,23 +40,28 @@
 }
 
     .buzzer {
-  width: 66px;
-  height: 66px;
-  border-radius: 20px;
-  background: #1a73e8;
+  width: 90px;
+  height: 90px;
+  border: none;
+  border-radius: 22px;
+  background: #ff4d4d; /* default; will be overwritten inline */
   color: #fff;
-  font-size: 1.07em;
-  font-weight: 600;
+  font-size: 1.3em;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  transition: background 0.13s, box-shadow 0.13s, transform 0.09s;
-  margin: 8px 8px;
-  letter-spacing: 0.01em;
-  text-align: center;
-  padding: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+  cursor: pointer;
+  transition: box-shadow 0.13s, filter 0.1s;
+  outline: none;
+  margin-bottom: 12px;
+  margin-top: 2px;
+  /* Remove any transparency or gradient */
+  opacity: 1;
+  background-image: none !important;
+}
+
 }
 .buzzer:active {
   background: #1761c6;
