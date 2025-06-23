@@ -21,32 +21,10 @@
   box-shadow: 0 4px 24px 0 rgba(80,130,255,0.08), 0 1.5px 10px 0 rgba(0,0,0,0.04);
   padding: 32px 18px 28px 18px;
 }
- .buzzer-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    .buzzer-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
     .buzzer-container { margin: 10px; text-align: center; }
-
-    .buzzer {
-  width: 66px;
-  height: 66px;
-  border-radius: 20px;
-  background: #1a73e8;
-  color: #fff;
-  font-size: 1.07em;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  transition: background 0.13s, box-shadow 0.13s, transform 0.09s;
-  margin: 8px 8px;
-  letter-spacing: 0.01em;
-  text-align: center;
-  padding: 0;
-}
-.buzzer:active {
-  background: #1761c6;
-}
-
+    .buzzer { width: 100px; height: 100px; border: none; border-radius: 50%; font-size: 16px; cursor: pointer; transition: transform 0.1s ease; }
+    .buzzer:active { transform: scale(0.95); }
     .disabled { background-color: #ccc !important; cursor: not-allowed; }
     .name-input, .header-input, .players-input, .password-input, .slot-select { padding: 8px; font-size: 16px; width: 150px; }
     .score-input { padding: 8px; font-size: 16px; width: 60px; margin: 0 5px; }
