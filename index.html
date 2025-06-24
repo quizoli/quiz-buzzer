@@ -739,12 +739,33 @@ function hideWaitingForHost() {
 
   // --- 12. Scoreboard Live Update + Download ---
 function updateScoreboard(names, scores) {
-  let html = '';
-  let n = parseInt(playersInput.value) || 4;
-  for (let i = 0; i < n; i++) {
-    html += `<tr><td>Player ${i+1}</td><td>${names[i] || ''}</td><td>${scores[i] || 0}</td></tr>`;
+  // Split the array into two halves
+  const mid = Math.ceil(names.length / 2);
+  let htmlLeft = '';
+  let htmlRight = '';
+
+  for (let i = 0; i < names.length; i++) {
+    const row = `<tr>
+      <td>Player ${i + 1}</td>
+      <td>${names[i] || ''}</td>
+      <td>${scores[i] || 0}</td>
+    </tr>`;
+    if (i < mid) htmlLeft += row;
+    else htmlRight += row;
   }
-  scoreboardBody.innerHTML = html;
+
+  scoreboardBody.innerHTML = `
+    <div class="scoreboard-tables-row">
+      <table class="scoreboard-table">
+        <thead><tr><th>Player</th><th>Name</th><th>Score</th></tr></thead>
+        <tbody>${htmlLeft}</tbody>
+      </table>
+      <table class="scoreboard-table">
+        <thead><tr><th>Player</th><th>Name</th><th>Score</th></tr></thead>
+        <tbody>${htmlRight}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 downloadBtn.onclick = function() {
