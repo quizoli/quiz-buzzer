@@ -54,9 +54,10 @@ body {
 }
 .buzzer-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);   /* Up to 4 columns per row */
-  gap: 24px 24px;                          /* Row and column spacing */
+  grid-template-columns: repeat(4, 1fr);  /* 4 columns per row */
+  gap: 24px 24px;                         /* spacing */
   justify-items: center;
+  justify-content: center;                 /* <-- Step 2: Add this line */
   margin-top: 20px;
   width: 100%;
   max-width: 900px;
@@ -69,7 +70,6 @@ body {
     grid-template-columns: repeat(2, 1fr); /* 2 columns per row on mobile */
     max-width: 420px;
   }
-}
 }
 .buzzer-container {
   display: flex;
