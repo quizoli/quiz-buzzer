@@ -5,89 +5,204 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title id="page-title">Oliver's Quiz Game</title>
   <link href="https://fonts.googleapis.com/css?family=Montserrat:700,400&display=swap" rel="stylesheet">
-  <style>
-    body {
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:700,400&display=swap" rel="stylesheet">
+<style>
+body {
   font-family: 'Montserrat', Arial, sans-serif;
   text-align: center;
-  background: linear-gradient(120deg, #f8fafc 0%, #e9ecef 100%);
+  background: radial-gradient(ellipse at top, #202649 60%, #0e2240 100%);
   margin: 0;
   padding: 0;
+  min-height: 100vh;
 }
 .container {
-  max-width: 700px;
-  margin: 40px auto;
+  max-width: 800px;
+  margin: 46px auto;
   background: #fff;
-  border-radius: 25px;
-  box-shadow: 0 4px 24px 0 rgba(80,130,255,0.08), 0 1.5px 10px 0 rgba(0,0,0,0.04);
-  padding: 32px 18px 28px 18px;
+  border-radius: 35px;
+  box-shadow: 0 8px 44px 0 #2874fa13, 0 2.5px 20px 0 #ffe06613;
+  padding: 38px 16px 30px 16px;
 }
-    .buzzer-row {
+.tv-quiz-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.tv-glow {
+  font-size: 2.5em;
+  font-family: 'Montserrat', Arial, sans-serif;
+  letter-spacing: 4px;
+  color: #ffe066;
+  background: #0e2240;
+  padding: 18px 44px;
+  border-radius: 38px;
+  box-shadow:
+    0 0 16px #ffe066,
+    0 0 64px #2874fa,
+    0 0 8px #0e2240 inset;
+  text-shadow:
+    0 0 10px #ffe066,
+    0 0 20px #2874fa,
+    0 2px 2px #000;
+  border: 3px solid #ffe066;
+  animation: header-glow 1.2s infinite alternate;
+}
+@keyframes header-glow {
+  from { box-shadow: 0 0 24px #ffe066, 0 0 64px #2874fa; }
+  to   { box-shadow: 0 0 64px #ffe066, 0 0 128px #2874fa; }
+}
+.buzzer-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: flex-start;
-  gap: 24px 32px; /* vertical and horizontal gap */
+  gap: 28px 24px;
   margin-top: 28px;
-  width: 100%;
 }
-
 .buzzer-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 140px;
-  margin: 0; /* remove extra margin */
+  margin: 6px 14px;
+  min-width: 160px;
 }
-
-    .buzzer {
+.buzzer {
   width: 90px;
   height: 90px;
-  border: none;
-  border-radius: 22px;
-  background: #ff4d4d; /* default; will be overwritten inline */
-  color: #fff;
-  font-size: 1.3em;
-  font-weight: 700;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background: linear-gradient(140deg, #2874fa 50%, #ffe066 120%);
+  color: #222;
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-weight: bold;
+  font-size: 1.22em;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+  box-shadow:
+    0 0 0px #ffe066,
+    0 2px 24px 0 #0e224055,
+    0 1.5px 10px 0 #2874fa44;
+  margin: 12px 0 10px 0;
   cursor: pointer;
-  transition: box-shadow 0.13s, filter 0.1s;
   outline: none;
-  margin-bottom: 12px;
-  margin-top: 2px;
-  /* Remove any transparency or gradient */
-  opacity: 1;
-  background-image: none !important;
-}
-
+  transition: transform 0.10s, box-shadow 0.15s;
+  text-shadow: 0 2px 7px #fff, 0 0px 12px #ffe066;
 }
 .buzzer:active {
-  background: #1761c6;
+  background: #ffe066;
+  color: #1b2836;
+  box-shadow: 0 0 22px #2874fa, 0 0 36px #ffe066;
+  transform: scale(0.97);
 }
-
-    .disabled { background-color: #ccc !important; cursor: not-allowed; }
-    .name-input, .header-input, .players-input, .password-input, .slot-select { padding: 8px; font-size: 16px; width: 150px; }
-    .score-input { padding: 8px; font-size: 16px; width: 60px; margin: 0 5px; }
-    .score-btn { padding: 5px 12px; margin: 0 2px; font-size: 18px; border-radius: 10px; border: none; }
-    .header-container, .players-container, .password-container, .login-container { margin-bottom: 20px; }
-    #login-screen { display: block; margin-top: 50px; }
-    #password-screen, #game-screen, #player-setup-screen { display: none; }
-    #timer-container { margin-top: 15px; margin-bottom: 15px; }
-    #timer { font-size: 2em; padding: 10px; margin-right: 20px; }
-    #timer-controls button { padding: 8px 18px; margin: 0 5px; font-size: 1em; border-radius: 8px; border: none; }
-    #timer-input { width: 70px; font-size: 1.2em; margin-right: 12px; }
-    #scoreboard { background: #fff; border-radius: 15px; box-shadow: 0 0 8px #ccc; margin: 30px auto 10px auto; max-width: 600px; padding: 16px 10px 10px 10px; }
-    #scoreboard h2 { margin-top: 0; font-size: 1.5em; }
-    #scoreboard-table { width: 100%; font-size: 1.3em; border-collapse: collapse; margin-bottom: 0; }
-    #scoreboard-table th, #scoreboard-table td { border-bottom: 1px solid #eee; padding: 6px 8px; }
-    #timeout-popup { display:none; position: fixed; left:0; top:0; width:100vw; height:100vh; background: rgba(0,0,0,0.6); z-index: 20; justify-content: center; align-items: center; }
-    #timeout-popup-inner { background: #fff; padding: 40px 40px; border-radius: 20px; box-shadow: 0 0 16px #444; font-size: 2.2em; color: #c00; animation: flashbg 0.3s linear 0s 6 alternate; }
-    @keyframes flashbg { from { background: #fff; } to { background: #ffcccc; } }
-    #leave-btn { position: fixed; top: 18px; right: 25px; padding: 8px 20px; font-size: 1em; background: #fff8f0; border-radius: 9px; border:1px solid #fa8072; color: #d94d3a; cursor: pointer; z-index:10; }
-    #download-btn { margin-left: 14px; padding: 8px 16px; border-radius: 8px; border: 1px solid #007bff; color: #007bff; background: #f6faff; font-size: 1em; }
-  </style>
+.score-btn {
+  border-radius: 12px !important;
+  border: none !important;
+  background: #eee !important;
+  color: #222 !important;
+  font-weight: bold;
+  font-size: 1.1em;
+  margin: 0 3px;
+  width: 32px;
+  height: 36px;
+}
+.score-btn:active {
+  background: #ffe066 !important;
+}
+.score-input {
+  padding: 8px;
+  font-size: 1em;
+  width: 60px;
+  margin: 0 5px;
+  text-align: center;
+  border-radius: 7px;
+  border: 1px solid #eee;
+}
+.name-input {
+  width: 120px;
+  margin-bottom: 5px;
+  text-align: center;
+  font-size: 1em;
+  font-family: 'Montserrat', Arial, sans-serif;
+}
+#timer {
+  font-size: 2.6em;
+  font-weight: 700;
+  color: #ffe066;
+  text-shadow: 0 0 10px #2874fa, 0 2px 2px #1b2836;
+  background: #1b2836;
+  padding: 8px 22px;
+  border-radius: 18px;
+  margin: 0 18px;
+  letter-spacing: 2px;
+}
+#scoreboard {
+  background: #fff;
+  border-radius: 15px;
+  box-shadow: 0 0 8px #ccc;
+  margin: 30px auto 10px auto;
+  max-width: 600px;
+  padding: 16px 10px 10px 10px;
+}
+#scoreboard h2 {
+  margin-top: 0;
+  font-size: 1.5em;
+}
+#scoreboard-table {
+  width: 100%;
+  font-size: 1.3em;
+  border-collapse: collapse;
+  margin-bottom: 0;
+}
+#scoreboard-table th, #scoreboard-table td {
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+}
+#timeout-popup {
+  display:none;
+  position: fixed;
+  left:0;
+  top:0;
+  width:100vw;
+  height:100vh;
+  background: rgba(0,0,0,0.6);
+  z-index: 20;
+  justify-content: center;
+  align-items: center;
+}
+#timeout-popup-inner {
+  background: #fff;
+  padding: 40px 40px;
+  border-radius: 20px;
+  box-shadow: 0 0 16px #444;
+  font-size: 2.2em;
+  color: #c00;
+  animation: flashbg 0.3s linear 0s 6 alternate;
+}
+@keyframes flashbg { from { background: #fff; } to { background: #ffcccc; } }
+#leave-btn {
+  position: fixed;
+  top: 18px;
+  right: 25px;
+  padding: 8px 20px;
+  font-size: 1em;
+  background: #fff8f0;
+  border-radius: 9px;
+  border:1px solid #fa8072;
+  color: #d94d3a;
+  cursor: pointer;
+  z-index:10;
+}
+#download-btn {
+  margin-left: 14px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #007bff;
+  color: #007bff;
+  background: #f6faff;
+  font-size: 1em;
+}
+</style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
