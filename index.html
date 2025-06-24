@@ -255,15 +255,19 @@ body {
       <input type="text" id="header-input" class="header-input" value="Oliver's Quiz Game">
     </div>
     <h1 id="main-header">Oliver's Quiz Game</h1>
-     <div id="timer-container">
-      <input type="number" id="timer-input" min="1" value="30" /> seconds
-      <span id="timer">00:30.0</span>
-      <span id="timer-controls">
-        <button id="start-timer-btn">Start</button>
-        <button id="stop-timer-btn">Stop</button>
-        <button id="reset-timer-btn">Reset</button>
-      </span>
-    </div>
+    <div id="timer-container">
+  <div id="timer-row">
+    <span id="timer">00:30.0</span>
+  </div>
+  <div id="timer-controls-row">
+    <input type="number" id="timer-input" min="1" value="30" /> seconds
+    <span id="timer-controls">
+      <button id="start-timer-btn">Start</button>
+      <button id="stop-timer-btn">Stop</button>
+      <button id="reset-timer-btn">Reset</button>
+    </span>
+  </div>
+</div>
     <div class="players-container">
       <label>Number of Players (2-8):</label>
       <input type="number" id="players-input" class="players-input" value="4" min="2" max="8">
