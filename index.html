@@ -53,11 +53,23 @@ body {
   to   { box-shadow: 0 0 64px #ffe066, 0 0 128px #2874fa; }
 }
 .buzzer-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 28px 24px;
-  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);   /* Up to 4 columns per row */
+  gap: 24px 24px;                          /* Row and column spacing */
+  justify-items: center;
+  margin-top: 20px;
+  width: 100%;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 650px) {
+  .buzzer-row {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns per row on mobile */
+    max-width: 420px;
+  }
+}
 }
 .buzzer-container {
   display: flex;
