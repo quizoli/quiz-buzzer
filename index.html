@@ -137,26 +137,84 @@ body {
   letter-spacing: 2px;
 }
 #scoreboard {
-  background: #fff;
-  border-radius: 15px;
-  box-shadow: 0 0 8px #ccc;
-  margin: 30px auto 10px auto;
-  max-width: 600px;
-  padding: 16px 10px 10px 10px;
+  background: #1b212a;
+  border-radius: 20px;
+  box-shadow: 0 4px 32px 0 rgba(33,46,66,0.17);
+  margin: 28px auto 12px auto;
+  max-width: 400px;
+  padding: 16px 12px 14px 12px;
+  border: 4px solid #ffe066;
+  min-width: 320px;
+  color: #ffe066;
+  text-align: center;
+  transition: box-shadow 0.18s;
 }
+
 #scoreboard h2 {
   margin-top: 0;
-  font-size: 1.5em;
+  font-size: 2em;
+  font-family: 'Montserrat', Arial, sans-serif;
+  letter-spacing: 0.06em;
+  color: #ffe066;
+  text-shadow: 0 0 8px #ffe06655;
 }
+
 #scoreboard-table {
   width: 100%;
-  font-size: 1.3em;
-  border-collapse: collapse;
+  font-size: 1.15em;
+  border-collapse: separate;
+  border-spacing: 0 8px;
   margin-bottom: 0;
 }
+
 #scoreboard-table th, #scoreboard-table td {
-  border-bottom: 1px solid #eee;
-  padding: 6px 8px;
+  padding: 7px 2px;
+  text-align: center;
+  font-family: 'Montserrat', Arial, sans-serif;
+  border: none;
+  background: none;
+}
+
+#scoreboard-table th {
+  color: #fffde0;
+  text-shadow: 0 0 7px #ffe06688;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+#scoreboard-table td {
+  color: #ffe066;
+  font-size: 1.05em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: #212e42;
+  border-radius: 6px;
+  box-shadow: 0 2px 7px 0 rgba(255, 224, 102, 0.03);
+  text-shadow: 0 1px 6px #222c4766;
+  border-bottom: 2px solid #282d36;
+}
+
+#scoreboard-table tr:last-child td {
+  border-bottom: none;
+}
+#download-btn {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 7px;
+  border: 1.5px solid #ffe066;
+  color: #1b212a;
+  background: #ffe066;
+  font-size: 1em;
+  font-weight: 700;
+  font-family: 'Montserrat', Arial, sans-serif;
+  box-shadow: 0 2px 10px rgba(33,46,66,0.12);
+  transition: background 0.14s, color 0.14s;
+}
+#download-btn:hover {
+  background: #fffde0;
+  color: #212e42;
+  border-color: #ffe066;
 }
 #timeout-popup {
   display:none;
