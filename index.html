@@ -307,7 +307,19 @@ body {
   <label>Number of Players (2-8):</label>
   <input type="number" id="players-input" class="players-input" value="4" min="2" max="8">
 </div>
+<div id="timer-settings-row">
+  <input type="number" id="timer-input" min="1" value="30" />
+  <span>seconds</span>
+  <div id="timer-controls">
+    <button id="start-timer-btn">Start</button>
+    <button id="stop-timer-btn">Stop</button>
+    <button id="reset-timer-btn">Reset</button>
+  </div>
+</div>
 <div id="timer-container">
+  <!-- Your timer display stays here! -->
+  <span id="timer">00:30.0</span>
+</div>
   ...
 </div>
 
