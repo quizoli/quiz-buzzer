@@ -289,7 +289,18 @@ body {
   <button id="leave-btn" style="display:none;">Leave Game</button>
   <div id="timeout-popup"><div id="timeout-popup-inner">TIME'S UP!</div></div>
   <div id="game-screen" class="container">
-    <div class="header-container">
+    <div class="header-container"><div id="game-screen" class="container">
+  <div class="header-container">
+    <label>Quiz Title:</label>
+    <input type="text" id="header-input" class="header-input" value="Oliver's Quiz Game">
+  </div>
+  <h1 id="main-header">Oliver's Quiz Game</h1>
+  <div style="margin-bottom:16px;">
+    <button id="reset" style="margin:0 10px 0 0;">Reset</button>
+    <button id="start-new-game-btn">Start New Game</button>
+  </div>
+  <!-- rest of your elements, e.g., player count, timer, scoreboard, etc. -->
+</div>
       <label>Quiz Title:</label>
       <input type="text" id="header-input" class="header-input" value="Oliver's Quiz Game">
     </div>
@@ -322,8 +333,6 @@ body {
     </div>
     <div id="status">Ready</div>
     <div id="buzzer-row" class="buzzer-row"></div>
-    <button id="reset" style="margin-top:20px;">Reset</button>
-    <button id="start-new-game-btn" style="margin-top:20px; display:none;">Start New Game</button>
   </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
